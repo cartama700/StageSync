@@ -8,6 +8,23 @@ import (
 	"time"
 )
 
+type GachaPity struct {
+	PlayerID  string
+	PoolID    string
+	Counter   int32
+	UpdatedAt time.Time
+}
+
+type GachaRoll struct {
+	ID       string
+	PlayerID string
+	PoolID   string
+	CardID   string
+	Rarity   string
+	IsPity   bool
+	PulledAt time.Time
+}
+
 type Profile struct {
 	ID        string
 	Name      string

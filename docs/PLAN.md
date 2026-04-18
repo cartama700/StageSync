@@ -10,17 +10,17 @@
 
 ```
 보너스축    [━━━━━━] 3/3 ✓ 완료
-v0.1 기반   [·······] 0/4
-v0.2 도메인 [·······] 0/4
+v0.1 기반   [━━━━━━] 4/4 ✓ 완료
+v0.2 도메인 [▓·······] 1/4 (Phase 5 진행 중)
 v0.3 운영   [·····]   0/3
 v0.4 데이터 [·]       0/1
 v0.5 배포   [·····]   0/3
 v0.6 마감   [·····]   0/3
             ─────────
-총           3/21 = 14%
+총           7/21 = 33%
 ```
 
-**현 위치**: 보너스축 완료 → **Phase 1 (REST + clean architecture)** 착수 준비
+**현 위치**: **Phase 5 (ガチャ API) 진행 중** — 브랜치 `feat/phase-5-gacha`
 **재편 기록**: 2026-04-18 대전제 재정의 (실시간 중심 → REST 중심). 기존 Phase 1·2 는 보너스축 (A·B) 로 이관.
 
 ---
@@ -29,9 +29,9 @@ v0.6 마감   [·····]   0/3
 
 | 버전 | Phase | 내러티브 | 진행 |
 |---|---|---|---|
-| **보너스** | 0, A, B | "기반 + 실시간 프로토콜 + 핫패스 최적화 쇼케이스" | 3/3 ✓ |
-| **v0.1 기반** | 1-4 | "clean architecture + MySQL + 테스트 CI 확립" | 0/4 |
-| **v0.2 도메인** | 5-8 | "ガチャ·イベント·ランキング·メール 게임 API" | 0/4 |
+| **보너스** | 0, A, B | "기반 + 실시간 프로토콜 + 핫패스 최적화 쇼케이스" | **3/3 ✓** |
+| **v0.1 기반** | 1-4 | "clean architecture + MySQL + 테스트 CI 확립" | **4/4 ✓** |
+| **v0.2 도메인** | 5-8 | "ガチャ·イベント·ランキング·メール 게임 API" | 1/4 (진행) |
 | **v0.3 운영** | 9-11 | "Prometheus·pprof·비동기 배치·Write-Behind" | 0/3 |
 | **v0.4 데이터** | 12 | "Spanner 듀얼 + hotspot 회피" | 0/1 |
 | **v0.5 배포** | 13-15 | "Docker + K8s + Terraform GKE" | 0/3 |
@@ -127,148 +127,136 @@ Phase 0 ─→ Phase 1 (clean arch + inmem repo)
 
 ---
 
-## v0.1 기반 — REST + MySQL + 테스트
+## v0.1 기반 — REST + MySQL + 테스트 ✓ 완료
 
-### Phase 1 — REST API 기반 + clean architecture — 대기 (다음)
+### Phase 1 — REST API 기반 + clean architecture ✓ 완료 (2026-04-18)
 
-**목표**: handler → service → repository 3-레이어 구조 확립. 첫 실 엔드포인트 `/api/profile/:id` 동작 (inmem repo).
+**산출물**:
+- handler → service → repository 3-레이어 + Mount 패턴
+- Consumer-defined interface (`endpoint.ProfileService`)
+- Profile 도메인 + DTO 매퍼
+- inmem `ProfileRepo` (테스트·개발)
+- `POST /api/profile` · `GET /api/profile/{id}`
 
-**기술 요소**:
-- 디렉토리: `internal/endpoint/`, `internal/service/`, `internal/persistence/inmem/`
-- `Server` 구조체 + 메서드 핸들러 (closure factory → 구조체 메서드로 업그레이드)
-- consumer-defined interface: `endpoint` 가 `ProfileService interface` 선언
-- Profile 도메인 모델 + DTO 매퍼
+**배운 Go 개념**: `context.Context` 첫 파라미터 · consumer 측 인터페이스 선언 · DTO ↔ Model 매핑 · 구조체 메서드 핸들러
 
-**Go 개념 (첫 등장)**:
-- `context.Context` 첫 파라미터 전면 적용 (R7)
-- 레이어 간 consumer 측 인터페이스 선언
-- DTO ↔ Model 매핑 패턴
-- 구조체 메서드 핸들러 (기존 closure factory 보완)
-
-**완료 기준 (시연)**:
-- `GET /api/profile/p1` → 404 (없음)
-- `POST /api/profile` `{"id":"p1","name":"sekai"}` → 200
-- `GET /api/profile/p1` → 200 `{...}`
-- 각 호출마다 handler → service → repo 로그 체인 확인
-
-**의존성**: Phase 0
-
-**추정 규모**: 약 400 줄
+**주요 파일**: [`internal/domain/profile/`](../internal/domain/profile/) · [`internal/service/profile/`](../internal/service/profile/) · [`internal/persistence/inmem/profile_repo.go`](../internal/persistence/inmem/profile_repo.go) · [`internal/endpoint/profile.go`](../internal/endpoint/profile.go)
 
 ---
 
-### Phase 2 — MySQL + goose + 트랜잭션 — 대기
+### Phase 2 — MySQL + sqlc + goose + inmem↔mysql swap ✓ 완료 (2026-04-18)
 
-**목표**: MySQL 8 컨테이너에서 플레이어 프로필 실제 영속화. Phase 1 의 inmem repo 를 MySQL repo 로 교체. `ENV MYSQL_DSN` 빈 값이면 inmem fallback (graceful degrade).
+**산출물**:
+- `sqlc` 타입 안전 쿼리 (schema.sql + queries/*.sql → gen/*.go)
+- `goose` 프로그래머블 마이그레이션 + `embed.FS`
+- `MYSQL_DSN` graceful degrade (inmem ↔ mysql swap)
+- MySQL 1062 duplicate key → `domain.ErrAlreadyExists` 매핑
+- Colima + Docker 수동 제어 (`make dev-up/down`)
+- **영속성 검증 E2E** — 서버 재시작 후에도 데이터 유지
 
-**기술 요소**:
-- `jmoiron/sqlx` + `go-sql-driver/mysql`
-- `pressly/goose` 마이그레이션 — `V001_create_players.sql`
-- `internal/persistence/mysql/player_repo.go`
-- `internal/persistence/inmem/player_repo.go` (Phase 1 에서 만든 것 유지)
-- 트랜잭션 패턴: `*sqlx.Tx` + `defer tx.Rollback()` + `tx.Commit()`
-- `docker-compose.override.yml` 로 MySQL 컨테이너 임시 기동 (Phase 13 이전 임시)
+**배운 Go 개념**: `database/sql` + blank import driver · `sql.DB` pool · `//go:embed` · `errors.As(err, &mysqlErr)` · sqlc + goose 공존 패턴
 
-**Go 개념 (첫 등장)**:
-- `sqlx.DB` · `QueryRowxContext` · `NamedExecContext`
-- Transaction scope 패턴
-- `fmt.Errorf("insert player: %w", err)` 래핑 (R2) 전면 적용
-- `errors.Is` / `errors.As` 에러 식별 (R13)
-- env var 기반 구현 스위치 (graceful degrade)
-
-**완료 기준 (시연)**:
-- `docker run mysql:8` → `goose up` 적용 → REST API 가 실 DB 에 저장/조회
-- 트랜잭션 롤백 케이스 단위 테스트 통과
-
-**의존성**: Phase 1
-
-**추정 규모**: 약 400 줄 + SQL 100 줄
+**주요 파일**: [`internal/persistence/mysql/`](../internal/persistence/mysql/) · [`sqlc.yaml`](../sqlc.yaml)
 
 ---
 
-### Phase 3 — Validation + 에러 타입 체계 — 대기
+### Phase 3 — Validation + 에러 타입 체계 ✓ 완료 (2026-04-18)
 
-**목표**: 입력 검증 · 에러 타입 계층 · HTTP status 매핑 정착. API 가 진짜 "프로덕션스러운" 경계 검증 갖춤.
+**산출물**:
+- `go-playground/validator/v10` struct tag 검증
+- `internal/apperror` 패키지 — 타입 계층 + HTTP 매핑
+- 필드별 에러 응답 `{"error":{"code":"...","fields":[{field,tag,message}...]}}`
+- 도메인 sentinel ↔ HTTP error 경계 분리 (service 는 HTTP 몰라도 됨)
+- E2E 8 시나리오 검증 (400 VALIDATION / 404 / 409 / 201 / 200)
 
-**기술 요소**:
-- `go-playground/validator/v10` 또는 자작 validation
-- Sentinel errors (`var ErrPlayerNotFound = errors.New("...")`)
-- 에러 타입 계층 — `ValidationError`, `NotFoundError`, `ConflictError` 등
-- 공통 에러 미들웨어 — 에러 타입 → HTTP status 코드 매핑
-- 응답 포맷 `{"error":{"code":"...","message":"..."}}`
+**배운 Go 개념**: struct tag validation · `RegisterTagNameFunc` (JSON 필드명 매칭) · 커스텀 error type + `Unwrap()` · `errors.As` 타입 매칭
 
-**Go 개념 (첫 등장)**:
-- struct tag 기반 validation
-- `errors.Is` / `errors.As` 심화 (R13)
-- 커스텀 에러 타입 (구조체 + `Error() string` 메서드)
-- 공통 에러 미들웨어 패턴
-
-**완료 기준 (시연)**:
-- `POST /api/profile {}` → 400 + 필드별 에러 메시지
-- `GET /api/profile/nonexistent` → 404 + `{"error":{"code":"PROFILE_NOT_FOUND", ...}}`
-- 중복 생성 → 409
-- 내부 에러 → 500, 스택 노출 안 함
-
-**의존성**: Phase 2
-
-**추정 규모**: 약 300 줄
+**주요 파일**: [`internal/apperror/`](../internal/apperror/) · [`internal/endpoint/profile.go`](../internal/endpoint/profile.go) (validator 통합)
 
 ---
 
-### Phase 4 — 테스트 + golangci-lint CI — 대기
+### Phase 4 — 테스트 + golangci-lint CI ✓ 완료 (2026-04-18)
 
-**목표**: 전체 코드베이스 테스트 커버리지 확보 + GitHub Actions 로 자동화.
+**산출물**:
+- `testify/require` + table-driven + `t.Parallel()` (31 서브케이스)
+- `httptest.NewServer` in-memory HTTP E2E
+- `.golangci.yml` v2 포맷 + 13 린터 (errcheck · staticcheck · revive · gocritic · bodyclose 등)
+- `.github/workflows/ci.yml` — test + lint + benchmark (golangci-lint v2.11.4)
+- `run() error` 패턴 리팩터 (os.Exit + defer 충돌 해결)
+- Mount 패턴 전 핸들러 통일
+- **race detector 통과 · lint 0 issues · PR #1 CI 녹색 머지**
 
-**기술 요소**:
-- stdlib `testing` + `stretchr/testify/require`
-- **Table-driven test + `t.Run + t.Parallel()`** (R4) 전면 적용
-- `httptest.NewServer` / `httptest.NewRecorder` in-memory E2E
-- Repo mock (inmem repo 가 자연스럽게 mock 역할)
-- `.github/workflows/ci.yml` — `go test`, `go test -bench`, `golangci-lint run`
-- `golangci-lint` 로컬 실행 + CI 통합 (R3)
+**배운 Go 개념**: `testing.T` / `testing.B` · table-driven + `t.Parallel()` · `httptest.NewServer` · `t.Cleanup` · `run() error` 패턴 · golangci-lint v1→v2 마이그레이션
 
-**Go 개념 (첫 등장)**:
-- `testing.T`, `testing.B`, `t.Run`, `t.Parallel()`
-- `httptest` API
-- Table-driven 패턴 관용구
-
-**완료 기준 (시연)**:
-- `go test ./...` 모두 통과
-- GitHub Actions 초록 뱃지
-- `golangci-lint run` 0 issues
-
-**의존성**: Phase 1-3
-
-**추정 규모**: 테스트 약 600 줄 + CI yaml 80 줄
+**주요 파일**: 각 패키지의 `*_test.go` · [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) · [`.golangci.yml`](../.golangci.yml)
 
 ---
 
 ## v0.2 도메인 — 게임 API
 
-### Phase 5 — ガチャ (Gacha) API — 대기
+### Phase 5 — ガチャ (Gacha) API — 진행 중 (브랜치: `feat/phase-5-gacha`)
 
-**목표**: 가중치 RNG + 천장 시스템 + 이력 기록. "10연 뽑기" 시나리오 완주.
+**목표**: 가중치 RNG + 천장 시스템 + 이력 기록. 10연 뽑기 트랜잭션 원자성 증명.
+
+**MVP 범위** (이번 PR 포함):
+- 도메인: `Card` · `Pool` · `Roll` · `Rarity` (R · SR · SSR) · `PityState`
+- 1 개 하드코딩 예시 풀 (embed 데이터, YAML 은 후속)
+- 가중치 기반 RNG (`math/rand/v2` + 누적 확률 이분 탐색)
+- **천장 시스템**: N 연속 SSR 없으면 다음 roll 확정
+- **트랜잭션 원자성**: 10-roll → `gacha_rolls` N행 INSERT + `gacha_pity` UPSERT 단일 트랜잭션
+- inmem + MySQL 듀얼 저장소
+- sqlc 쿼리 + goose 마이그레이션 (`00002_gacha.sql`)
+- 3 REST 엔드포인트 (roll / history / pity)
+- 테스트: 확률 분포 (10만회 ±5%) · 천장 트리거 · 트랜잭션 롤백
+
+**스코프 제외** (Phase 5b 또는 후속):
+- YAML 풀 설정 파일 로드
+- 재화 (jewel/gem) 차감 로직
+- 멀티 풀 · 픽업 기간 관리
+- 중복 요청 멱등성 (request_id) — Phase 11 Write-Behind 에서
 
 **기술 요소**:
-- 가챠 풀 정의 (`config/gacha.yml` 또는 DB)
-- 가중치 기반 RNG (`math/rand/v2` + `WeightedRand` 유틸)
-- **천장 (pity) 시스템** — 일정 횟수 무픽업 시 SSR 확정
-- **이력** — `gacha_rolls` 테이블에 기록
-- **픽업 캐릭터** — 특정 기간 확률 증폭
-- 트랜잭션: 가챠 roll + 플레이어 재화 차감 + 인벤토리 추가가 원자적
+- `math/rand/v2` + 고정 seed (테스트 재현성)
+- `github.com/google/uuid` v7 (time-ordered roll ID)
+- `sqlc` `Queries` 가 `*sql.Tx` 수용 (`DBTX` 인터페이스)
+- 서비스가 `Repository.WithinTx(fn)` 으로 원자 블록 지정
 
 **Go 개념 (첫 등장)**:
-- `math/rand/v2` 의 `Rand.IntN`, `Float64`
-- 복잡한 트랜잭션 스코프 (여러 테이블 동시 수정)
+- `math/rand/v2` 가중치 뽑기 + 이분 탐색
+- UUID v7 (`uuid.NewV7()`)
+- `sql.Tx` 트랜잭션 스코프 + sqlc 연동
+- Service-level 트랜잭션 추상화 (Repository.WithinTx)
+- 통계 테스트 (확률 분포 허용 오차 범위 검증)
 
 **완료 기준 (시연)**:
-- `POST /api/gacha/roll` `{"count":10}` → 10개 아이템 + 천장 카운터 업데이트
-- 단위 테스트: 10만회 roll → 확률 분포가 예상값의 ±5% 내
-- 중복 roll 방지 (같은 요청 ID 재사용 시 멱등)
+- `POST /api/gacha/roll {"player":"p1","pool":"demo","count":10}` → 10 카드 + `is_pity` 필드
+- `GET /api/gacha/history/p1` → 최근 뽑기 이력 N건
+- `GET /api/gacha/pity/p1` → 풀별 천장 카운터
+- 트랜잭션 도중 에러 시뮬 → 롤백 후 DB 변화 없음 (테스트)
+- 10만회 roll 통계 테스트: R/SR/SSR 비율이 선언 가중치 ±5%
 
-**의존성**: Phase 2
+**예상 파일 구조**:
+```
+internal/domain/gacha/
+  ├── gacha.go         Card · Pool · Roll · Rarity · PityState
+  ├── errors.go        ErrPoolNotFound · ErrInvalidCount 등
+  └── rng.go           WeightedPick 유틸 (누적 가중치)
+internal/service/gacha/
+  ├── service.go       Service + Repository interface + Roll 메서드
+  ├── pool_data.go     하드코딩 데모 풀 1개
+  └── service_test.go  확률 분포 + 천장 + 표-주도
+internal/persistence/
+  ├── inmem/gacha_repo.go
+  └── mysql/
+      ├── migrations/00002_gacha.sql
+      ├── queries/gacha.sql
+      └── gacha_repo.go
+internal/endpoint/gacha.go + gacha_test.go
+```
 
-**추정 규모**: 약 500 줄
+**의존성**: Phase 1 (REST 기반) · Phase 2 (sqlc + goose)
+
+**추정 규모**: 코드 약 800 줄 + 테스트 약 300 줄 + SQL 약 80 줄
 
 ---
 
