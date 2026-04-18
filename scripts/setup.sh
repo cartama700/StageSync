@@ -74,7 +74,8 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 info "[2/4] Go 기반 CLI 도구"
 go_cli google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go_cli github.com/pressly/goose/v3/cmd/goose@latest
-go_cli github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+# golangci-lint 는 brew 로 설치 — v2 바이너리가 Go 최신 버전과 호환 (go install 은 v1 계열 가능성)
+brew_pkg golangci-lint
 
 info "[3/4] 컨테이너 스택 (Colima + Docker)"
 brew_pkg colima

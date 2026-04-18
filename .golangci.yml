@@ -1,40 +1,56 @@
+version: "2"
 run:
-  timeout: 3m
   go: "1.26"
-
 linters:
-  disable-all: true
+  default: none
   enable:
-    - errcheck       # 에러 반환값 무시 금지
-    - govet          # vet 표준 검사
-    - staticcheck    # 정적 분석 종합
-    - ineffassign    # 쓰지 않는 대입
-    - unused         # 쓰지 않는 변수/함수
-    - revive         # golint 후속, 스타일 가이드
-    - gocritic       # 추가 정적 분석
-    - bodyclose      # http response body close 누락
-    - unconvert      # 불필요한 타입 변환
-    - nilerr         # nil 에러인데 non-nil 처리
-    - nolintlint     # //nolint 주석 자체 검증
-    - gofmt          # 표준 포맷
-    - goimports      # import 순서 정리
-
-linters-settings:
-  revive:
+    - bodyclose
+    - errcheck
+    - gocritic
+    - govet
+    - ineffassign
+    - nilerr
+    - nolintlint
+    - revive
+    - staticcheck
+    - unconvert
+    - unused
+  settings:
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - disableStutteringCheck
+          disabled: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: exported
-        disabled: false
-        arguments:
-          - "disableStutteringCheck"
-  gocritic:
-    disabled-checks:
-      - ifElseChain  # switch 권장이지만 가독성 저하 경우 허용
-
-issues:
-  exclude-dirs:
-    - api/proto/roompb                 # protobuf 자동 생성
-    - internal/persistence/mysql/gen   # sqlc 자동 생성
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck  # 테스트 보일러플레이트에서 에러 무시 허용
+      - linters:
+          - errcheck
+        path: _test\.go
+    paths:
+      - api/proto/roompb
+      - internal/persistence/mysql/gen
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - api/proto/roompb
+      - internal/persistence/mysql/gen
+      - third_party$
+      - builtin$
+      - examples$
