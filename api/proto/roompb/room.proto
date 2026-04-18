@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package room.v1;
+
+option go_package = "github.com/kimsehoon/stagesync/api/proto/roompb;roompb";
+
+// ClientMessage — 클라이언트 → 서버 페이로드 래퍼.
+// Phase 1 은 Move 만. 후속 Phase 에서 Join / Leave / Chat 추가 예정.
+message ClientMessage {
+  oneof payload {
+    Move move = 1;
+  }
+}
+
+// Move — 플레이어의 월드 좌표 보고.
+message Move {
+  string player_id = 1;
+  double x = 2;
+  double y = 3;
+}

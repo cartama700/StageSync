@@ -1,0 +1,39 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: none
+  enable:
+    - errcheck       # 에러 반환값 무시 금지
+    - govet          # vet 표준 검사
+    - staticcheck    # 정적 분석 종합
+    - ineffassign    # 쓰지 않는 대입
+    - unused         # 쓰지 않는 변수/함수
+    - revive         # golint 후속, 스타일 가이드
+    - gocritic       # 추가 정적 분석 (opinionated)
+    - bodyclose      # http response body close 누락
+    - unconvert      # 불필요한 타입 변환
+    - nilerr         # nil 에러인데 non-nil 로 처리
+    - nolintlint     # //nolint 주석 자체 검증
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+
+  exclusions:
+    generated: lax
+    paths:
+      - api/proto/roompb  # protoc 자동 생성 코드
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

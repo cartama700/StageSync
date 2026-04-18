@@ -1,0 +1,14 @@
+version: "2"
+sql:
+  - engine: "mysql"
+    queries: "internal/persistence/mysql/queries"
+    schema: "internal/persistence/mysql/schema.sql"
+    gen:
+      go:
+        package: "gen"
+        out: "internal/persistence/mysql/gen"
+        sql_package: "database/sql"
+        emit_interface: true              # Querier 인터페이스 생성 (Phase 4 mock 에 사용)
+        emit_exact_table_names: false     # snake_case → CamelCase 변환
+        emit_prepared_queries: false      # prepared statement 전용 여부
+        emit_json_tags: false             # DTO 분리 정책 (R6) 이므로 JSON 태그는 DTO 에서만
