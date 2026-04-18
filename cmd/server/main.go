@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -22,34 +23,27 @@ import (
 const listenAddr = ":5050"
 
 func main() {
+	// run() 패턴 — defer 가 os.Exit 전에 확실히 실행되도록 분리.
+	if err := run(); err != nil {
+		slog.Error("server fatal", "err", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
 	// 의존성 wire-up (수동 DI — 일본 Go 관행 R5).
-	// Persistence → Service → Endpoint 순서로 조립.
 	rm := room.NewRoom()
 	optState := &lifecycle.Optimize{}
 
-	// プロフィール 레이어 체인 — MYSQL_DSN 있으면 MySQL, 없으면 inmem (graceful degrade).
-	var profileRepo profilesvc.Repository
-	if dsn := os.Getenv("MYSQL_DSN"); dsn != "" {
-		db, err := mysqlrepo.Open(context.Background(), dsn)
-		if err != nil {
-			slog.Error("mysql open", "err", err)
-			os.Exit(1)
-		}
-		defer func() { _ = db.Close() }()
-
-		if err := mysqlrepo.Migrate(db); err != nil {
-			slog.Error("mysql migrate", "err", err)
-			os.Exit(1)
-		}
-		profileRepo = mysqlrepo.NewProfileRepo(db)
-		slog.Info("persistence", "backend", "mysql")
-	} else {
-		profileRepo = inmem.NewProfileRepo()
-		slog.Info("persistence", "backend", "inmem", "hint", "set MYSQL_DSN for MySQL")
+	// プロフィール 레이어 체인 — MYSQL_DSN 있으면 MySQL, 없으면 inmem.
+	profileRepo, cleanup, err := buildProfileRepo()
+	if err != nil {
+		return fmt.Errorf("profile repo: %w", err)
 	}
+	defer cleanup()
 	profileService := profilesvc.NewService(profileRepo)
 
 	// Handler 들 (모두 구조체 메서드 패턴)
@@ -63,18 +57,12 @@ func main() {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 
-	// 관측·운영
-	r.Get("/api/metrics", metricsHandler.Get)
-	r.Post("/api/optimize", optHandler.ServeHTTP)
-	r.Get("/health/live", healthHandler.Live)
-	r.Get("/health/ready", healthHandler.Ready)
-
-	// プロフィール REST
-	r.Get("/api/profile/{id}", profileHandler.Get)
-	r.Post("/api/profile", profileHandler.Create)
-
-	// 실시간 (보너스축)
-	r.Get("/ws/room", wsHandler.ServeHTTP)
+	// 각 핸들러가 자기 라우트를 직접 등록 (도메인이 자기 URL 책임짐).
+	metricsHandler.Mount(r)
+	optHandler.Mount(r)
+	healthHandler.Mount(r)
+	profileHandler.Mount(r)
+	wsHandler.Mount(r)
 
 	h2s := &http2.Server{}
 	srv := &http.Server{
@@ -87,7 +75,30 @@ func main() {
 		"protocols", "HTTP/1.1 + h2c (WebSocket upgrade preserved)",
 	)
 	if err := srv.ListenAndServe(); err != nil {
-		slog.Error("server stopped", "err", err)
-		os.Exit(1)
+		return fmt.Errorf("listen and serve: %w", err)
 	}
+	return nil
+}
+
+// buildProfileRepo — MYSQL_DSN 있으면 MySQL repo + goose migrate, 없으면 inmem.
+// cleanup 은 defer 로 호출; inmem 일 땐 no-op.
+func buildProfileRepo() (profilesvc.Repository, func(), error) {
+	dsn := os.Getenv("MYSQL_DSN")
+	if dsn == "" {
+		slog.Info("persistence", "backend", "inmem", "hint", "set MYSQL_DSN for MySQL")
+		return inmem.NewProfileRepo(), func() {}, nil
+	}
+
+	db, err := mysqlrepo.Open(context.Background(), dsn)
+	if err != nil {
+		return nil, nil, fmt.Errorf("mysql open: %w", err)
+	}
+	cleanup := func() { _ = db.Close() }
+
+	if err := mysqlrepo.Migrate(db); err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("mysql migrate: %w", err)
+	}
+	slog.Info("persistence", "backend", "mysql")
+	return mysqlrepo.NewProfileRepo(db), cleanup, nil
 }

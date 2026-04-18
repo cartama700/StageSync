@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/kimsehoon/stagesync/internal/apperror"
 	"github.com/kimsehoon/stagesync/internal/lifecycle"
 )
@@ -12,6 +14,11 @@ import (
 // OptimizeHandler — POST /api/optimize 로 Naive/Pooled 경로 전환.
 type OptimizeHandler struct {
 	State *lifecycle.Optimize
+}
+
+// Mount — POST /api/optimize 라우트 등록.
+func (h *OptimizeHandler) Mount(r chi.Router) {
+	r.Post("/api/optimize", h.ServeHTTP)
 }
 
 type optimizeReq struct {

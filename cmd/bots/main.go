@@ -1,11 +1,12 @@
 // cmd/bots — WebSocket 부하 시뮬 봇.
 // ws://host/ws/room 에 접속해서 주기적으로 Move 메시지 송신.
-// Phase 1 은 봇 1개. Phase 12 에서 even/herd/cluster 시나리오로 확장 예정.
+// Phase 1 은 봇 1개. Phase 16 에서 even/herd/cluster 시나리오로 확장 예정.
 package main
 
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -19,6 +20,13 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("bot fatal", "err", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	var (
 		addr     = flag.String("addr", "ws://localhost:5050/ws/room", "server WebSocket address")
 		playerID = flag.String("player", "p1", "player id")
@@ -35,10 +43,9 @@ func main() {
 
 	conn, _, err := websocket.Dial(ctx, *addr, nil)
 	if err != nil {
-		slog.Error("dial failed", "addr", *addr, "err", err)
-		os.Exit(1)
+		return fmt.Errorf("websocket dial %s: %w", *addr, err)
 	}
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 
 	slog.Info("bot connected", "addr", *addr, "player", *playerID, "tick_ms", *tickMs)
 
@@ -53,7 +60,7 @@ func main() {
 			if err := conn.Close(websocket.StatusNormalClosure, "bye"); err != nil {
 				slog.Debug("close err", "err", err)
 			}
-			return
+			return nil
 		case <-ticker.C:
 			x += 1.0
 			y += 0.5
@@ -72,8 +79,7 @@ func main() {
 				continue
 			}
 			if err := conn.Write(ctx, websocket.MessageBinary, data); err != nil {
-				slog.Error("write failed", "err", err)
-				return
+				return fmt.Errorf("websocket write: %w", err)
 			}
 			slog.Info("move sent", "player", *playerID, "x", x, "y", y)
 		}

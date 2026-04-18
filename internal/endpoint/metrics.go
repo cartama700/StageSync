@@ -3,6 +3,8 @@ package endpoint
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/kimsehoon/stagesync/internal/lifecycle"
 	"github.com/kimsehoon/stagesync/internal/room"
 )
@@ -13,6 +15,11 @@ import (
 type MetricsHandler struct {
 	Room *room.Room
 	Opt  *lifecycle.Optimize
+}
+
+// Mount — 메트릭 라우트 등록.
+func (h *MetricsHandler) Mount(r chi.Router) {
+	r.Get("/api/metrics", h.Get)
 }
 
 // Get — 메트릭 JSON 응답. 추후 TPS·P99 latency 등 확장 예정.

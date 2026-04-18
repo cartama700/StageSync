@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/coder/websocket"
+	"github.com/go-chi/chi/v5"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/kimsehoon/stagesync/api/proto/roompb"
@@ -17,6 +18,11 @@ import (
 // protobuf ClientMessage 프레임을 Room 으로 분배.
 type WSHandler struct {
 	Room *room.Room
+}
+
+// Mount — WebSocket 업그레이드 엔드포인트 등록.
+func (h *WSHandler) Mount(r chi.Router) {
+	r.Get("/ws/room", h.ServeHTTP)
 }
 
 // ServeHTTP — chi 의 GET("/ws/room", ...) 에 등록.
@@ -30,7 +36,7 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		slog.Error("websocket accept failed", "err", err)
 		return
 	}
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 
 	ctx := r.Context()
 	playerID := ""

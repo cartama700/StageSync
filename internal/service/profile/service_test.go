@@ -1,62 +1,115 @@
-// package profile_test — 외부 테스트 패키지 (external test package).
-// service/profile 의 public API 만 사용 → 고객 시점 테스트 보장.
+// package profile_test — 외부 테스트 패키지 (외부 API 만 사용).
 package profile_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	domain "github.com/kimsehoon/stagesync/internal/domain/profile"
 	"github.com/kimsehoon/stagesync/internal/persistence/inmem"
 	profilesvc "github.com/kimsehoon/stagesync/internal/service/profile"
 )
 
-// TestCreateAndGet — 생성 후 조회 기본 흐름.
-func TestCreateAndGet(t *testing.T) {
-	repo := inmem.NewProfileRepo()
-	svc := profilesvc.NewService(repo)
-	ctx := context.Background()
+// newService — 테스트용 Service + inmem repo 조립 헬퍼.
+func newService(t *testing.T) *profilesvc.Service {
+	t.Helper()
+	return profilesvc.NewService(inmem.NewProfileRepo())
+}
 
-	created, err := svc.CreateProfile(ctx, "p1", "sekai")
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
-	if created.Name != "sekai" {
-		t.Errorf("name: got=%q want=%q", created.Name, "sekai")
+func TestService_GetProfile(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		seed     []string // 사전 생성할 ID 들
+		queryID  string
+		wantErr  error
+		wantName string
+	}{
+		{
+			name:     "found",
+			seed:     []string{"p1"},
+			queryID:  "p1",
+			wantName: "player-p1",
+		},
+		{
+			name:    "not found empty repo",
+			queryID: "ghost",
+			wantErr: domain.ErrNotFound,
+		},
+		{
+			name:    "not found different id",
+			seed:    []string{"p1", "p2"},
+			queryID: "p3",
+			wantErr: domain.ErrNotFound,
+		},
 	}
 
-	got, err := svc.GetProfile(ctx, "p1")
-	if err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	if got.ID != "p1" {
-		t.Errorf("id: got=%q want=%q", got.ID, "p1")
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			svc := newService(t)
+			ctx := context.Background()
+			for _, id := range tc.seed {
+				_, err := svc.CreateProfile(ctx, id, "player-"+id)
+				require.NoError(t, err)
+			}
+
+			got, err := svc.GetProfile(ctx, tc.queryID)
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.queryID, got.ID)
+			require.Equal(t, tc.wantName, got.Name)
+		})
 	}
 }
 
-// TestGet_NotFound — 없는 ID 조회 시 domain.ErrNotFound 를 errors.Is 로 판별.
-func TestGet_NotFound(t *testing.T) {
-	repo := inmem.NewProfileRepo()
-	svc := profilesvc.NewService(repo)
+func TestService_CreateProfile(t *testing.T) {
+	t.Parallel()
 
-	_, err := svc.GetProfile(context.Background(), "nope")
-	if !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("err: got=%v, want wrap of ErrNotFound", err)
+	tests := []struct {
+		name    string
+		seed    []string
+		id      string
+		pName   string
+		wantErr error
+	}{
+		{name: "new profile", id: "p1", pName: "sekai"},
+		{
+			name:    "duplicate",
+			seed:    []string{"p1"},
+			id:      "p1",
+			pName:   "other",
+			wantErr: domain.ErrAlreadyExists,
+		},
 	}
-}
 
-// TestCreate_Duplicate — 중복 생성 시 domain.ErrAlreadyExists.
-func TestCreate_Duplicate(t *testing.T) {
-	repo := inmem.NewProfileRepo()
-	svc := profilesvc.NewService(repo)
-	ctx := context.Background()
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			svc := newService(t)
+			ctx := context.Background()
+			for _, id := range tc.seed {
+				_, err := svc.CreateProfile(ctx, id, "seed-"+id)
+				require.NoError(t, err)
+			}
 
-	if _, err := svc.CreateProfile(ctx, "p1", "sekai"); err != nil {
-		t.Fatalf("first create: %v", err)
-	}
-	_, err := svc.CreateProfile(ctx, "p1", "sekai2")
-	if !errors.Is(err, domain.ErrAlreadyExists) {
-		t.Errorf("err: got=%v, want wrap of ErrAlreadyExists", err)
+			p, err := svc.CreateProfile(ctx, tc.id, tc.pName)
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.id, p.ID)
+			require.Equal(t, tc.pName, p.Name)
+			require.False(t, p.CreatedAt.IsZero(), "CreatedAt must be set")
+		})
 	}
 }

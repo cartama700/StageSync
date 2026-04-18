@@ -27,6 +27,13 @@ type ProfileHandler struct {
 	Service ProfileService
 }
 
+// Mount — プロフィール 도메인의 라우트를 부모 라우터에 등록.
+// 도메인이 자기 URL prefix 를 책임지는 패턴 (main.go 에서 한 줄로 호출).
+func (h *ProfileHandler) Mount(r chi.Router) {
+	r.Get("/api/profile/{id}", h.Get)
+	r.Post("/api/profile", h.Create)
+}
+
 // vldtr — 패키지 전역 validator (thread-safe, 재사용 권장).
 // JSON 태그명을 필드명으로 쓰도록 커스터마이즈 → 에러 응답의 "field" 가 클라 JSON 과 일치.
 var vldtr = func() *validator.Validate {
