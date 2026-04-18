@@ -158,6 +158,6 @@
 ## 참조 문서
 
 - [`PLAN.md`](./PLAN.md) — Phase 0~18 로드맵, 학습 트래커, 의존성 맵
-- [`../README.md`](../README.md) — 채용 담당자용 메인 (한국어)
-- [`../README.ja.md`](../README.ja.md) — 日本語版 (Phase 18 에서 완성)
+- [`../README.md`](../README.md) — 채용 담당자용 메인 (日本語 기본)
+- [`../README.ko.md`](../README.ko.md) — 한국어 버전
 - [`archive/PORTING_GUIDE_v1_legacy.md`](./archive/PORTING_GUIDE_v1_legacy.md) — 이전 관점 문서 (아카이브)

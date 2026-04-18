@@ -554,7 +554,7 @@ Phase 0 ─→ Phase 1 (clean arch + inmem repo)
 
 **체크리스트**:
 - [ ] `README.md` 최종 정돈 (GIF, 30초 스크립트)
-- [ ] `README.ja.md` 완전 번역 (Phase 0-17 모든 내용)
+- [ ] `README.md` (日本語 기본) 최종 정돈 + `README.ko.md` 동기화 (Phase 0-17 전 내용)
 - [ ] `docs/MISSION.ja.md` 핵심 섹션 JP 번역
 - [ ] 각 Phase demo GIF 녹화 (`demo/*.gif`)
 - [ ] 면접 30초 스크립트 다듬기 (한·일 양쪽)
@@ -610,5 +610,5 @@ Phase 0 ─→ Phase 1 (clean arch + inmem repo)
 
 - [`MISSION.md`](./MISSION.md) — 프로젝트 미션 · 공고 매핑 · 5축 프레임 (SSOT)
 - [`archive/PORTING_GUIDE_v1_legacy.md`](./archive/PORTING_GUIDE_v1_legacy.md) — 이전 관점 (아카이브)
-- [`../README.md`](../README.md) — 채용 담당자용 메인
-- [`../README.ja.md`](../README.ja.md) — 日本語版
+- [`../README.md`](../README.md) — 채용 담당자용 메인 (日本語 기본)
+- [`../README.ko.md`](../README.ko.md) — 한국어 버전

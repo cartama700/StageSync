@@ -1,197 +1,170 @@
 # StageSync
 
-> **リズムゲーム バックエンド 서버 엔지니어 일상 업무 시뮬레이션** — 株式会社Colorful Palette サーバサイドエンジニア 공고 저격 포트폴리오.
+> **リズムゲーム バックエンド サーバエンジニアの日常業務を Go で再現したポートフォリオ**
 
-**言語 / 언어**: [한국어 (현재 파일)](./README.md) · [日本語](./README.ja.md) (準備中)
+**言語 / 언어**: [日本語 (本ファイル)](./README.md) · [한국어](./README.ko.md)
 **SSOT**: [`docs/MISSION.md`](./docs/MISSION.md) · [`docs/PLAN.md`](./docs/PLAN.md)
 
 ---
 
-## 한 줄 미션
+## 概要
 
-**株式会社Colorful Palette サーバサイドエンジニア [BA-09-04a](https://hrmos.co/pages/colorfulpalette/jobs/BA-09-04a) 의 일상 업무를 Go 로 시뮬레이션한 포트폴리오.**
+株式会社 Colorful Palette サーバサイドエンジニア求人 [BA-09-04a](https://hrmos.co/pages/colorfulpalette/jobs/BA-09-04a) を対象に、実際の日常業務 — **REST API · DB · 非同期バッチ · 運用** — を Go で実装したポートフォリオ。
 
-리듬게임 백엔드 — **プロフィール · ガチャ · イベント · ランキング · メール** — 를 Spring Boot 대응 Go 구조 (handler-service-repository 3-레이어) 로 구현하고, 공고 명시 스택 (Aurora MySQL · Spanner · Redis · GKE · Terraform · Locust) 을 그대로 정렬.
+求人明記スタック (**Aurora MySQL · Cloud Spanner · Redis · GKE · Terraform · Locust**) に完全整合させ、Mercari / CyberAgent グループ基準の日本 Go 業界慣行を反映。
 
----
+**Project Sekai の実プロダクション構造を模倣**:
+- リアルタイム通信: **Diarkis** (Go / GKE / TCP·UDP·RUDP) — 外部ミドルウェア
+- REST レイヤ: **Spring Boot (Java/Go)** — 本ポートフォリオの **主軸**
+- データストア: Aurora MySQL + Spanner + Redis
 
-## 포폴이 증명하는 이야기
-
-1. **REST API 설계·구현** — clean architecture · DTO · validation · 에러 타입 체계
-2. **관계형 DB (MySQL) + NewSQL (Spanner) 운영 감각** — 트랜잭션 · 마이그레이션 · hotspot 회피
-3. **비동기 배치·큐 패턴** — 이벤트 집계 · 랭킹 스냅샷 · Write-Behind
-4. **게임 도메인 로직** — 가챠 확률 엔진 · 이벤트 라이프사이클 · 랭킹 계산
-5. **관측성·테스트·운영 자동화** — Prometheus · pprof · Locust · K8s · Terraform
-6. **일본 Go 업계 코딩 관행 숙지** — Mercari/CyberAgent 스타일 + 린터 + KR/JP 이중 언어 주석
-7. **AI 시대 생산성** — Claude Code 협업 + AI Ops Assistant 구축
+二層構造 (REST 主軸 + WebSocket ボーナス軸) で両方を実装。
 
 ---
 
-## 작성자 맥락 (정직하게)
+## 作者について (正直に)
 
-이 프로젝트는 **"장인의 대표작"** 이 아니라 **"성장 포트폴리오"** 입니다.
+本プロジェクトは「職人の代表作」ではなく **「成長ポートフォリオ」** である。
 
-- **Go · Java 이번이 첫 실무 경험** (C#/.NET 여러 년 배경).
-- **일본어 N2~N3** 수준 (공고는 N1 필수 — 에이전시 컨택 성사 후 포폴이 결정타).
-- **AI 도구 (Claude Code) 적극 협업** — 2026 년 기준 개발 생산성 · 학습 가속 증명.
-- 증명하려는 것: **학습 속도** · **기술적 깊이** · **일본 업계 관행 정렬 의지**.
-
----
-
-## 기술 스택
-
-### 공고 스택 그대로 정렬
-- **언어**: Go 1.26 (+ Java/Spring Boot 대응 구조)
-- **REST**: chi + HTTP/2 cleartext (h2c)
-- **DB**: Aurora MySQL (`sqlx` + `goose`) + Cloud Spanner (`spanner-go`) 듀얼
-- **캐시·Pub/Sub**: Redis (`redis/go-redis/v9`)
-- **관측**: Prometheus + pprof + `log/slog` JSON
-- **인프라**: Docker (distroless) + GKE + HPA + Terraform
-- **부하 테스트**: Locust `.py` + k6 `.js` + 자체 `cmd/bots`
-- **AI Ops**: OpenAI 호환 LLM + SSE 스트리밍
-
-### 일본 Go 업계 관행 반영
-- `.golangci.yml` (errcheck · staticcheck · revive · gocritic · bodyclose 등)
-- `fmt.Errorf("...: %w", err)` 에러 래핑 전면
-- Table-driven test + `t.Parallel()`
-- 수동 DI 또는 `google/wire` (uber/fx 비주류)
-- 주석: 한국어 주 + 짧은 JP 도메인 용어 (`ルーム`, `協奏`, `バーチャルライブ`)
+- **Go · Java は今回が初の実務挑戦** (C#/.NET 実務経験数年)
+- **日本語 N2 ~ N3** (求人は N1 必須 — エージェント経由でコンタクト成立、本ポートフォリオが決め手)
+- **AI ツール (Claude Code) を積極活用** — 2026 年現在の開発生産性 · 学習速度を実証
+- 証明したい点: **学習速度** · **技術的深さ** · **日本業界慣行への整合意志**
 
 ---
 
-## Phase 로드맵 요약
+## 技術スタック
 
-| 마일스톤 | Phase | 내용 | 상태 |
-|---|---|---|---|
-| **보너스축** | 0, A, B | 뼈대 · WebSocket Room · AOI 토글 | ✓ 완료 |
-| **v0.1 기반** | 1-4 | REST + clean arch · MySQL · Validation · 테스트 CI | 대기 |
-| **v0.2 도메인** | 5-8 | ガチャ · イベント · ランキング · メール | 대기 |
-| **v0.3 운영** | 9-11 | Prometheus · 비동기 배치 · Write-Behind | 대기 |
-| **v0.4 데이터** | 12 | Spanner 듀얼 + hotspot 회피 | 대기 |
-| **v0.5 배포** | 13-15 | Docker · K8s · Terraform GKE | 대기 |
-| **v0.6 마감** | 16-18 | Locust · AI Ops · 문서 마감 | 대기 |
+### 実装済み (Phase 0-4 + ボーナス軸)
 
-상세: [`docs/PLAN.md`](./docs/PLAN.md)
+| 領域 | 採用技術 |
+|---|---|
+| ルーティング | `chi` + HTTP/2 cleartext (h2c) |
+| アーキテクチャ | handler → service → repository 3 層 + `Mount(r)` パターン |
+| DB | Aurora MySQL (`sqlx` + `sqlc` + `goose`) · inmem ↔ MySQL 切替 |
+| バリデーション | `go-playground/validator/v10` + カスタムエラー型階層 (`apperror`) |
+| エラー処理 | `fmt.Errorf("%w")` · `errors.Is` / `errors.As` · sentinel errors |
+| テスト | `testify/require` · table-driven · `t.Parallel()` · httptest E2E · race detector |
+| 静的解析 | `.golangci.yml` (errcheck, staticcheck, revive, gocritic, bodyclose 等) |
+| CI | GitHub Actions (test + lint + benchmark) |
+
+### ボーナス軸 — リアルタイム通信
+
+- `coder/websocket` + protobuf binary frame
+- `sync.RWMutex` + map による thread-safe Room 管理
+- AOI フィルタ + `sync.Pool` 最適化トグル (**1.5 倍高速化 · 0 allocs/op**)
+- `cmd/bots` WebSocket 負荷シミュレータ
+
+### 実装予定 (Phase 5-18)
+
+ガチャ · イベント · ランキング · メール (ゲームドメイン API) → Prometheus · pprof · 非同期バッチ · Write-Behind → Cloud Spanner デュアルストア → Docker Compose · Kubernetes + HPA · Terraform GKE → Locust + k6 負荷テスト → AI Ops アシスタント
 
 ---
 
-## 보너스축 (완료) — 실시간 기능
+## Phase 進捗
 
-공고의 메인 축은 아니지만, **"Diarkis 운영 맥락 이해 + 실시간 프로토콜도 구현 가능"** 시그널로 선행 완성:
-
-| Phase | 내용 | 주요 기술 |
+| マイルストーン | Phase | 状態 |
 |---|---|---|
-| **0** ✓ | 서버 뼈대 · REST 기반 · 관측 엔드포인트 | chi · HTTP/2 h2c · log/slog |
-| **A** ✓ | WebSocket Room 시연 (봇이 좌표 쏘고 서버 로그 수신) | `coder/websocket` · protobuf · `sync.RWMutex` |
-| **B** ✓ | AOI 필터 + `sync.Pool` 토글 (1.5× · 0 allocs) | `sync.Pool` · `atomic.Bool` · `testing.B` |
+| ボーナス軸 | 0, A, B | ✅ 3/3 |
+| v0.1 基盤 | 1-4 | ✅ 4/4 |
+| v0.2 ドメイン | 5-8 | ⏳ 0/4 |
+| v0.3 運用 | 9-11 | ⏳ 0/3 |
+| v0.4 データ | 12 | ⏳ 0/1 |
+| v0.5 デプロイ | 13-15 | ⏳ 0/3 |
+| v0.6 仕上げ | 16-18 | ⏳ 0/3 |
 
-*이 자산은 유지되며 Phase 16 부하 시나리오 등에서 계속 활용.*
+詳細: [`docs/PLAN.md`](./docs/PLAN.md)
 
 ---
 
-## 빠른 시작
+## クイックスタート
 
-### 일괄 환경 설치 (macOS · 재실행 안전)
+### 一括環境セットアップ (macOS · idempotent)
+
 ```bash
 ./scripts/setup.sh
 ```
-Homebrew 만 있으면 Go · protoc · sqlc · goose · golangci-lint · Colima · Docker 까지 일괄 설치 + Colima VM 기동. **idempotent** 이므로 여러 번 실행해도 안전하게 스킵.
 
-### 개별 명령
+Homebrew さえあれば Go · protoc · sqlc · goose · golangci-lint · Colima · Docker までワンショットで準備。
+
+### 基本動作 (Docker 不要 · inmem モード)
+
 ```bash
-make tidy        # Go 의존성 다운로드
-make proto       # room.proto → room.pb.go (Phase A 자산)
-make sqlc        # SQL → Go 타입 안전 코드 생성
-make build       # bin/server, bin/bots
-make test        # 전 단위 테스트
-make bench       # AOI 벤치마크 (보너스축)
-```
-
-### 현재 시연 가능한 것
-
-#### v0.1 기반 — REST API (Phase 1)
-```bash
-make run                                             # 서버 기동 (inmem 모드)
-
-# 프로필 생성 → 조회 → 중복 거부
+make run
 curl -X POST http://localhost:5050/api/profile \
-     -H "Content-Type: application/json" -d '{"id":"p1","name":"sekai"}'
+     -H "Content-Type: application/json" \
+     -d '{"id":"p1","name":"sekai"}'
 curl http://localhost:5050/api/profile/p1
 ```
 
-#### Phase 2 — MySQL 실 연결 (Docker 필요)
+### MySQL 実接続 (Docker 必要)
+
 ```bash
-make dev-up          # Colima + MySQL 동시 기동 (필요할 때만)
-make run-mysql       # 서버 (MYSQL_DSN 자동 + goose 자동 마이그레이션)
-
-curl -X POST http://localhost:5050/api/profile \
-     -H "Content-Type: application/json" -d '{"id":"p1","name":"sekai"}'
-# 서버 재시작해도 프로필 유지됨 (DB 영속 확인)
-
-make dev-down        # 끝났으면 MySQL + Colima 둘 다 정리 (배터리 절약)
+make dev-up          # Colima + MySQL をオンデマンド起動
+make run-mysql       # サーバ起動 (goose が自動マイグレーション実行)
+# ... 動作確認 ...
+make dev-down        # 終了時に両方停止 (バッテリー節約)
 ```
 
-**개별 제어**: `make docker-up / docker-down / docker-status / mysql-dev / mysql-stop`
+### ボーナス軸 — WebSocket リアルタイム
 
-#### 보너스축 — WebSocket 실시간 (Phase A·B)
 ```bash
-# 터미널 1
 make run
-
-# 터미널 2 — WebSocket 부하 봇 1개
 go run ./cmd/bots -player=p1 -tick=200
-
-# 터미널 3 — 최적화 토글
+# 別ターミナル:
 curl http://localhost:5050/api/metrics
 curl -X POST http://localhost:5050/api/optimize \
-     -H "Content-Type: application/json" -d '{"on":true}'
-curl http://localhost:5050/api/metrics  # optimized=true 반영
+     -H "Content-Type: application/json" \
+     -d '{"on":true}'
 ```
 
-### AOI 벤치마크 (Phase B)
+### テスト · 静的解析
+
 ```bash
-go test -bench=. -benchmem -benchtime=3s -count=3 ./internal/service/aoi/
-# Naive  : ~445 ns/op, 512 B/op, 1 allocs/op
-# Pooled : ~305 ns/op,   0 B/op, 0 allocs/op
+make test            # go test -race ./...
+make bench           # AOI ベンチマーク
+make                 # Makefile のヘルプ (デフォルトターゲット)
 ```
 
 ---
 
-## 디렉토리 구조
+## ディレクトリ構造
 
 ```
 StageSync/
 ├── cmd/
-│   ├── server/main.go             chi + HTTP/2 + REST + WebSocket
-│   └── bots/main.go               WebSocket 부하 시뮬
-├── api/proto/roompb/              [보너스축] 실시간 메시지 스키마
+│   ├── server/          REST + WebSocket サーバ
+│   └── bots/            WebSocket 負荷シミュレータ
+├── api/proto/roompb/    protobuf スキーマ + 生成コード
 ├── internal/
-│   ├── endpoint/                  HTTP handler 레이어
-│   ├── room/                      [보너스축] thread-safe Room
-│   ├── service/aoi/               [보너스축] AOI 필터
-│   └── lifecycle/                 optimize 토글 · readiness gate
-├── docs/
-│   ├── MISSION.md                 프로젝트 미션 (현 SSOT)
-│   ├── PLAN.md                    Phase 0-18 로드맵
-│   └── archive/
-│       └── PORTING_GUIDE_v1_legacy.md   이전 관점 (폐기)
-├── Makefile                       proto / tidy / run / build / clean
-├── .golangci.yml                  일본 Go 업계 린터 룰셋
-├── go.mod / go.sum
-└── .gitignore
+│   ├── domain/          純粋ドメインオブジェクト
+│   ├── service/         ビジネスロジック (profile, aoi)
+│   ├── persistence/
+│   │   ├── inmem/       メモリ実装 (開発 · テスト)
+│   │   └── mysql/       sqlc + goose + schema + queries
+│   ├── endpoint/        HTTP ハンドラ (Mount パターン)
+│   ├── apperror/        エラー型階層 + HTTP マッピング
+│   ├── room/            WebSocket Room 状態 (ボーナス軸)
+│   └── lifecycle/       ランタイムフラグ
+├── docs/                ミッション · プラン · アーカイブ
+├── scripts/setup.sh     一括環境セットアップ
+├── .github/workflows/   CI パイプライン
+├── Makefile
+├── sqlc.yaml
+├── .golangci.yml
+└── go.mod
 ```
 
 ---
 
-## 관련 문서
+## 関連ドキュメント
 
-- [**docs/MISSION.md**](./docs/MISSION.md) — 프로젝트 미션 · 공고 bullet 매핑 · 5축 프레임 (SSOT)
-- [**docs/PLAN.md**](./docs/PLAN.md) — Phase 0-18 로드맵 · 의존성 · 학습 트래커
-- [**README.ja.md**](./README.ja.md) — 日本語版 (Phase 18 에서 완성 예정)
-- [**docs/archive/PORTING_GUIDE_v1_legacy.md**](./docs/archive/PORTING_GUIDE_v1_legacy.md) — 이전 관점 문서 (아카이브, 현 결정 근거 아님)
+- [**docs/MISSION.md**](./docs/MISSION.md) — プロジェクトミッション · 求人マッピング · 5 軸フレーム
+- [**docs/PLAN.md**](./docs/PLAN.md) — Phase 0-18 ロードマップ · 依存関係 · 学習トラッカー
+- [**README.ko.md**](./README.ko.md) — 한국어 版
 
 ---
 
-## 라이선스
+## ライセンス
 
-개인 포트폴리오용 비공개 프로젝트. 상업적 재사용 제한.
+個人ポートフォリオ用 · 商用再利用制限。
