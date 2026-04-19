@@ -12,14 +12,16 @@
 
 ## ✨ ハイライト
 
-- **4 日間で 15 Phase を完了** — Phase 0-7 · 9 lite · 13 · 14 lite · 16 lite · 18 (提出 MVP)
-- **REST API 全19エンドポイント** (プロフィール · ガチャ · イベント · ランキング) + **WebSocket リアルタイム通信 (ボーナス課題)**
-- **ガチャ確率エンジン** — **10連ガチャのアトミックなトランザクション** + **80連天井** · **10,000 サンプルで分布誤差 ±5% 以内を検証**
+- **MVP (Phase 0-18) を 4 日間で完了** + 提出後に **セキュリティ · 障害対応の 4 件** を追加実装 (JWT Auth · Idempotency · Rate Limit · Phase 19 デッドロックラボ)
+- **REST API 全 20 エンドポイント** (プロフィール · ガチャ · イベント · ランキング · バトル) + **WebSocket リアルタイム通信 (ボーナス課題)**
+- **ガチャ確率エンジン** — **10 連ガチャのアトミックなトランザクション** + **80 連天井** · **10,000 サンプルで分布誤差 ±5% 以内を検証**
 - **Redis ZSET ランキング** — `REDIS_ADDR` 未設定時はインメモリ動作へ**フォールバック (Fallback)**
+- **セキュリティ 3 層** — JWT HS256 認証 + `Idempotency-Key` キャッシュ (Redis `SET NX`) + Token Bucket Rate Limit (per identity)
+- **Phase 19 HP デッドロックラボ** — `SELECT ... FOR UPDATE` による行ロック競合を再現 → playerID 別単一ワーカーで Go レベル直列化 → `maxInFlight == 1` でテスト検証 + `cmd/battlebench` で実測 ([実測ガイド](./docs/BENCHMARKS.md#phase-19--hp-同時減算デッドロック-ラボ))
 - **Prometheus Histogram** (method × chi RoutePattern × status) + `/debug/pprof/*`
 - **K8s readiness gate** — `SIGTERM` 受信で `/health/ready` を 503 に切替 → drain 5 秒 → `srv.Shutdown()`
-- **AOI 最適化** — Naive vs Pooled 比較で **約 2.48 倍の高速化 · 0 allocs/op** ([実測データ](./docs/BENCHMARKS.md))
-- **テスト 181 PASS** · `go vet` · `golangci-lint v2` · `-race` 全て green
+- **AOI 最適化** — Naive vs Pooled 比較で **約 2.48 倍の高速化 · 0 allocs/op**
+- **テスト 238 PASS** · `go vet` · `golangci-lint v2` · `-race` 全て green
 - **`docker compose up --build`** コマンド一つで MySQL + Redis + server が 30 秒で起動
 
 ---
@@ -102,7 +104,7 @@ REST API を主軸としつつ、追加要件 (ボーナス課題) として Web
 
 ## 技術スタック
 
-### 実装済み (v3 MVP スコープ · Phase 0-18)
+### 実装済み (v3 MVP · Phase 0-18 + 提出後追加 · Phase 19)
 
 | 領域 | 採用技術 |
 |---|---|
@@ -111,16 +113,17 @@ REST API を主軸としつつ、追加要件 (ボーナス課題) として Web
 | 設定管理 | `internal/config` で環境変数集約 + バリデーション |
 | ランタイム | Graceful shutdown (`SIGTERM` → readiness drain → `srv.Shutdown`) · request timeout · request-scoped slog (`request_id` 伝搬) |
 | DB (RDBMS) | Aurora MySQL · `sqlc` + `goose` + **アトミックなトランザクション** · inmem ↔ MySQL 切替 — [ADR-0002](./docs/adr/0002-sqlc-over-orm.md) |
-| DB (KV) | Redis ZSET (ランキング) · `REDIS_ADDR` 未設定時はインメモリへフォールバック |
-| ゲームドメイン | プロフィール · ガチャ (10連ガチャのアトミック処理 + 80連天井) · イベント (時間経過に依存する状態管理 + アトミックな UPSERT) · ランキング (ZSET + 自身の前後 ±N 件) |
+| DB (KV) | Redis ZSET (ランキング) · `Idempotency-Key` キャッシュ · `REDIS_ADDR` 未設定時はインメモリへフォールバック |
+| ゲームドメイン | プロフィール · ガチャ (10 連ガチャのアトミック処理 + 80 連天井) · イベント (時間経過に依存する状態管理 + アトミックな UPSERT) · ランキング (ZSET + 自身の前後 ±N 件) · **バトル (Phase 19 デッドロックラボ)** |
+| **セキュリティ** | JWT HS256 認証 (`/api/auth/login` + `RequireAuth` ミドルウェア) + Token Bucket Rate Limit (per identity) + `Idempotency-Key` 中複 차단 |
 | バリデーション | `go-playground/validator/v10` + カスタムエラー型階層 (`apperror`) |
 | エラー処理 | `fmt.Errorf("%w")` · `errors.Is` / `errors.As` · Sentinel Errors (定義済みエラー) |
 | **オブザーバビリティ** | Prometheus `/metrics` (Histogram + Gauge + Go runtime collector) · `/debug/pprof/*` · access log (`request_id`) |
-| テスト | `testify/require` · テーブル駆動テスト · `t.Parallel()` · `httptest` E2E · `go-sqlmock` · `miniredis` · race detector |
+| テスト | `testify/require` · テーブル駆動テスト · `t.Parallel()` · `httptest` E2E · `go-sqlmock` · `miniredis` · race detector · **238 PASS** |
 | 静的解析 | `.golangci.yml` v2 (errcheck · staticcheck · revive · gocritic · bodyclose 等) |
 | CI | GitHub Actions (test + lint + Docker build + benchmark) |
 | デプロイ | Multi-target Dockerfile (distroless/static) + docker-compose 3 profile + K8s manifest ([`deploy/k8s/`](./deploy/k8s/)) + readiness gate |
-| 負荷試験 | Locust cluster シナリオ ([`deploy/locust/`](./deploy/locust/)) + `cmd/bots` WebSocket (even/herd/cluster × N 並列) |
+| 負荷試験 | Locust cluster シナリオ ([`deploy/locust/`](./deploy/locust/)) + `cmd/bots` WebSocket (even/herd/cluster × N 並列) + `cmd/battlebench` (Phase 19 実測 CLI) |
 
 ### 追加実装 (ボーナス課題) — リアルタイム通信
 
@@ -129,18 +132,23 @@ REST API を主軸としつつ、追加要件 (ボーナス課題) として Web
 - AOI フィルタ + `sync.Pool` による最適化トグル (**約 2.48 倍の高速化 · 0 allocs/op** — 実測: [`docs/BENCHMARKS.md`](./docs/BENCHMARKS.md))
 - `cmd/bots` による WebSocket 負荷シミュレータ (`even` / `herd` / `cluster` · N 並列)
 
-### 今後の追加予定 (v0.7 障害対応シミュレーション)
+### 追加実装 (TRADEOFFS 対応) — 提出後のセキュリティ · 障害対応強化
 
-**Phase 19 — HP 同時減算のデッドロック検証**: `SELECT ... FOR UPDATE` による**排他ロック (行ロック)** でデッドロックを意図的に再現し、ユーザー別パーティションキューを利用して直列化することで解消する過程を、3 段階のベンチマーク (v1-naive · v2-queue · v3-Redis+Write-Behind) で比較・検証します。
-※ 面接期間中に追加予定 — 「最新の取り組み」として面接時のディスカッション材料にできるよう準備中です。
+| 項目 | 実装内容 | 関連 PR |
+|---|---|---|
+| **JWT 認証ミドルウェア** | HS256 Issuer + Validator + ctx helpers · `/api/auth/login` · `RequireAuth` が `/api/gacha/*` を保護 · `AUTH_SECRET` 未設定時は pass-through (開発互換) | #5 |
+| **Idempotency-Key** | `Idempotency-Key` ヘッダベースのキャッシュ · Redis `SET NX EX` (本番) ↔ インメモリ (開発) · GET/HEAD は pass-through | #6 |
+| **Rate Limit** | Token Bucket per identity (auth player → XFF → RemoteAddr) · TTL sweep + `golang.org/x/time/rate` · 429 + `Retry-After` | #6 |
+| **Phase 19 HP デッドロックラボ** | `SELECT ... FOR UPDATE` で行ロック競合を再現 (v1-naive) → playerID 別単一ワーカーで Go レベル直列化 (v2-queue) → `maxInFlight == 1` でテスト検証 · `cmd/battlebench` で実測 | #7 |
 
 ### 提出スコープ外 (v3 で除外)
 
 Phase 8 (メール) · Phase 10-11 (非同期バッチ · Write-Behind) · Phase 12 (Cloud Spanner) · Phase 15 (Terraform GKE) · Phase 17 (AI Ops LLM) · Phase 20-22 (その他の障害検証) — 除外理由は [`docs/PLAN.md`](./docs/PLAN.md) の「スコープ再編記録」をご参照ください。
+アーキテクチャの既知の限界と面接対応ロジックは [`docs/TRADEOFFS.md`](./docs/TRADEOFFS.md) にまとめています。
 
 ---
 
-## Phase 進捗 (v3 MVP スコープ)
+## Phase 進捗
 
 | マイルストーン | Phase | 状態 |
 |---|---|---|
@@ -150,9 +158,10 @@ Phase 8 (メール) · Phase 10-11 (非同期バッチ · Write-Behind) · Phase
 | v0.3 運用系 lite | 9 | ✅ 1/1 (Histogram + pprof) |
 | v0.5 デプロイ lite | 13, 14 | ✅ 2/2 (Docker profiles + K8s manifest) |
 | v0.6 最終仕上げ | 16, 18 | ✅ 2/2 (Locust + ドキュメント完了) |
-| v0.7 障害検証 (提出後) | 19 | ⏳ 0/1 (面接期間中に追加予定) |
+| **TRADEOFFS 対応 (提出後)** | — | ✅ **JWT Auth (#5) · Idempotency + Rate Limit (#6)** |
+| **v0.7 障害検証 (提出後)** | 19 | ✅ **HP デッドロックラボ (#7) — v1-naive + v2-queue 完了** |
 
-**総合: 15/15 MVP ✅ 完了**
+**総合: 15/15 MVP ✅ 完了 + 提出後強化 3 件 (認証 · レート制限 · デッドロックラボ) ✅**
 
 詳細ロードマップ + 除外 Phase の理由: [`docs/PLAN.md`](./docs/PLAN.md) · 現状のスナップショット: [`docs/STATUS.md`](./docs/STATUS.md)
 
@@ -164,17 +173,21 @@ Phase 8 (メール) · Phase 10-11 (非同期バッチ · Write-Behind) · Phase
 StageSync/
 ├── cmd/
 │   ├── server/                 REST + WebSocket サーバ
-│   └── bots/                   WebSocket 負荷シミュレータ (even/herd/cluster)
+│   ├── bots/                   WebSocket 負荷シミュレータ (even/herd/cluster)
+│   └── battlebench/            Phase 19 HP デッドロックラボ 実測 CLI
 ├── api/proto/roompb/           protobuf スキーマ + 生成コード
 ├── internal/
+│   ├── auth/                   JWT HS256 Issuer + Validator + ctx helpers
 │   ├── config/                 環境変数ベース設定 + バリデーション
-│   ├── domain/                 純粋ドメインオブジェクト (profile · gacha · event · ranking)
-│   ├── service/                ビジネスロジック (+ aoi)
+│   ├── domain/                 純粋ドメインオブジェクト (profile · gacha · event · ranking · battle)
+│   ├── service/                ビジネスロジック (+ aoi · battle)
 │   ├── persistence/
 │   │   ├── inmem/              メモリ実装 (開発 · テスト · Redis fallback)
-│   │   ├── mysql/              sqlc + goose + schema + queries
+│   │   ├── mysql/              sqlc + goose + schema + queries + battle repo
 │   │   └── redis/              ランキング ZSET (miniredis テスト)
-│   ├── endpoint/               HTTP ハンドラ + ミドルウェア (Mount · Prometheus Histogram · pprof)
+│   ├── idempotency/            Idempotency-Key キャッシュ (Redis SET NX / inmem)
+│   ├── ratelimit/              Token Bucket per identity (golang.org/x/time/rate)
+│   ├── endpoint/               HTTP ハンドラ + ミドルウェア (Mount · Auth · Idempotency · RateLimit · Histogram · pprof)
 │   ├── apperror/               エラー型階層 + HTTP マッピング
 │   ├── room/                   WebSocket Room 状態 (ボーナス課題)
 │   └── lifecycle/              ランタイムフラグ (最適化トグル · readiness gate)
@@ -182,7 +195,8 @@ StageSync/
 │   ├── MISSION.md / PLAN.md / STATUS.md           設計 · ロードマップ · 現状
 │   ├── API.md / BENCHMARKS.md                     エンドポイント仕様 · 実測
 │   ├── PITCH.md / SUBMISSION_CHECKLIST.md         面接ピッチ · 提出チェックリスト
-│   ├── PORTFOLIO_SCENARIOS.md                     障害シナリオラボ設計 (Phase 19+)
+│   ├── TRADEOFFS.md                               既知の限界と面接対応ロジック
+│   ├── PORTFOLIO_SCENARIOS.md                     障害シナリオラボ (Phase 19)
 │   ├── adr/                                       Architecture Decision Records
 │   └── demo/                                      デモ GIF · スクリーンショット
 ├── deploy/
