@@ -270,6 +270,7 @@ StageSync/
 - [`PLAN.md`](./PLAN.md) — 로드맵 (SSOT)
 - [`MISSION.md`](./MISSION.md) — 프로젝트 미션 · 공고 매핑
 - [`API.md`](./API.md) · [`BENCHMARKS.md`](./BENCHMARKS.md) · [`adr/`](./adr/)
+- [`PITCH.md`](./PITCH.md) · [`TRADEOFFS.md`](./TRADEOFFS.md) · [`SUBMISSION_CHECKLIST.md`](./SUBMISSION_CHECKLIST.md)
 - [`../CHANGELOG.md`](../CHANGELOG.md) — 완료된 변경 이력
 - [`../README.md`](../README.md) (日本語) · [`../README.ko.md`](../README.ko.md)
 - [`../deploy/k8s/README.md`](../deploy/k8s/README.md) · [`../deploy/locust/README.md`](../deploy/locust/README.md)

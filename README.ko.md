@@ -222,6 +222,7 @@ StageSync/
 - [**docs/API.md**](./docs/API.md) — 엔드포인트 사양 (SSOT)
 - [**docs/BENCHMARKS.md**](./docs/BENCHMARKS.md) — AOI + Locust 실측
 - [**docs/adr/**](./docs/adr/) — 주요 기술 선택 기록 (chi · sqlc · h2c)
+- [**docs/TRADEOFFS.md**](./docs/TRADEOFFS.md) — 의도적 scope-out 5 지점 + 면접 대응 논리
 - [**CHANGELOG.md**](./CHANGELOG.md) — 완료된 변경 이력
 - [**deploy/k8s/README.md**](./deploy/k8s/README.md) — K8s 배포 절차 · readiness drain 동작
 - [**deploy/locust/README.md**](./deploy/locust/README.md) — 부하 테스트 실행 방법

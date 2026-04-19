@@ -226,6 +226,7 @@ StageSync/
 | [`docs/BENCHMARKS.md`](./docs/BENCHMARKS.md) | AOI 実測 + Locust 結果テンプレート |
 | [`docs/adr/`](./docs/adr/) | 主要な技術選択の記録 (chi · sqlc · h2c) |
 | [`docs/PITCH.md`](./docs/PITCH.md) | 面接ピッチスクリプト (30 秒 / 2 分 / 5 分) |
+| [`docs/TRADEOFFS.md`](./docs/TRADEOFFS.md) | 既知の限界 · 意図的スコープアウト · 面接対応論理 |
 | [`CHANGELOG.md`](./CHANGELOG.md) | v0.1 リリース変更履歴 |
 | [`deploy/k8s/README.md`](./deploy/k8s/README.md) | K8s デプロイ手順 · readiness drain 挙動 |
 | [`deploy/locust/README.md`](./deploy/locust/README.md) | 負荷試験の実行方法 |

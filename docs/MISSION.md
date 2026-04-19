@@ -173,6 +173,7 @@
 - [`BENCHMARKS.md`](./BENCHMARKS.md) — AOI + Locust 실측
 - [`adr/`](./adr/) — 기술 결정 상세 (chi · sqlc · h2c)
 - [`PITCH.md`](./PITCH.md) — 면접 피치 스크립트 (JP + ko)
+- [`TRADEOFFS.md`](./TRADEOFFS.md) — 의도적 scope-out 5 지점 + 면접 방어 대응 논리
 - [`SUBMISSION_CHECKLIST.md`](./SUBMISSION_CHECKLIST.md) — 제출 직전 체크리스트
 - [`PORTFOLIO_SCENARIOS.md`](./PORTFOLIO_SCENARIOS.md) — 제출 후 장애 랩 (Phase 19)
 - [`../README.md`](../README.md) — 채용 담당자용 메인 (日本語 기본)
