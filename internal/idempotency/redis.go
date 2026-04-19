@@ -49,14 +49,20 @@ func (s *RedisStore) Get(ctx context.Context, key string) (*Entry, bool, error) 
 }
 
 // Set — `SET NX EX` 로 원자적 쓰기. 키가 이미 있으면 no-op (반환 nil).
+//
+// go-redis v9 이후 `SetNX` 메서드는 deprecated → `SetArgs` + `SetArgs{Mode:"NX"}` 로
+// 쓰는 게 권장 패턴. NX 실패 (키 이미 존재) 는 `redis.Nil` 로 오므로 에러로 처리하지 않음.
 func (s *RedisStore) Set(ctx context.Context, key string, entry Entry) error {
 	raw, err := json.Marshal(entry)
 	if err != nil {
 		return fmt.Errorf("marshal idempotency entry: %w", err)
 	}
-	// SetNX: set if not exists. 반환 bool 은 실제 쓰기 여부 — 쓰이지 않아도 에러 아님.
-	if _, err := s.client.SetNX(ctx, key, raw, s.ttl).Result(); err != nil {
-		return fmt.Errorf("redis setnx: %w", err)
+	_, err = s.client.SetArgs(ctx, key, raw, goredis.SetArgs{
+		Mode: "NX",
+		TTL:  s.ttl,
+	}).Result()
+	if err != nil && !errors.Is(err, goredis.Nil) {
+		return fmt.Errorf("redis set nx: %w", err)
 	}
 	return nil
 }
