@@ -34,6 +34,13 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
+
+// run — 실제 로직. error 반환으로 defer 가 전부 실행되도록 설계 (gocritic exitAfterDefer 회피).
+func run() error {
 	var (
 		dsn     = flag.String("dsn", os.Getenv("MYSQL_DSN"), "MySQL DSN (기본: MYSQL_DSN env)")
 		impl    = flag.String("impl", "naive", "구현 선택: naive | queue")
@@ -46,7 +53,7 @@ func main() {
 	flag.Parse()
 
 	if *dsn == "" {
-		log.Fatal("MYSQL_DSN 이 필요합니다. env 로 설정하거나 -dsn 플래그 사용")
+		return fmt.Errorf("MYSQL_DSN 이 필요합니다. env 로 설정하거나 -dsn 플래그 사용")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
@@ -54,13 +61,13 @@ func main() {
 
 	db, err := mysql.Open(ctx, *dsn)
 	if err != nil {
-		log.Fatalf("mysql open: %v", err)
+		return fmt.Errorf("mysql open: %w", err)
 	}
 	defer func() { _ = db.Close() }()
 
 	repo := mysql.NewBattleRepo(db)
 	if err := repo.Reset(ctx, *target, *hpInit); err != nil {
-		log.Fatalf("reset target hp: %v", err)
+		return fmt.Errorf("reset target hp: %w", err)
 	}
 
 	applier := battlesvc.Build(battlesvc.Implementation(*impl), repo)
@@ -70,15 +77,16 @@ func main() {
 	results := runBench(ctx, applier, *target, *n, *damage)
 	printReport(results, *impl)
 
-	// 최종 HP 확인 — 누적 일치성 체크.
+	// 최종 HP 확인 — 누적 일치성 체크 (에러는 경고로만).
 	finalHP, err := repo.Get(context.Background(), *target)
 	if err != nil {
 		log.Printf("warning: get final hp: %v", err)
-	} else {
-		expected := *hpInit - (*damage)*results.ok
-		fmt.Printf("final_hp=%d, expected=%d (hp_init - damage*ok), delta=%d\n",
-			finalHP.HP, expected, finalHP.HP-expected)
+		return nil
 	}
+	expected := *hpInit - (*damage)*results.ok
+	fmt.Printf("final_hp=%d, expected=%d (hp_init - damage*ok), delta=%d\n",
+		finalHP.HP, expected, finalHP.HP-expected)
+	return nil
 }
 
 // result — 한 고루틴의 실행 결과.
