@@ -1,0 +1,26 @@
+# CPU 사용률 기반 오토스케일.
+# - 평소 2 replica 유지 (HA)
+# - CPU 평균 70% 넘으면 스케일 아웃, 최대 10
+# - 추후 RPS / WebSocket 연결 수 기반 커스텀 메트릭으로 확장 여지.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stagesync-server
+  namespace: stagesync
+  labels:
+    app.kubernetes.io/name: stagesync
+    app.kubernetes.io/component: server
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stagesync-server
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

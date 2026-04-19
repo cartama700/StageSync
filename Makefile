@@ -1,12 +1,14 @@
 GO_BIN := $(shell go env GOPATH)/bin
 export PATH := $(GO_BIN):$(PATH)
 
-MYSQL_DSN ?= root:root@tcp(127.0.0.1:3306)/stagesync?parseTime=true&loc=Local
+MYSQL_DSN  ?= root:root@tcp(127.0.0.1:3306)/stagesync?parseTime=true&loc=Local
+REDIS_ADDR ?= 127.0.0.1:6379
 
-.PHONY: help proto sqlc run run-mysql build tidy clean test bench \
+.PHONY: help proto sqlc run run-mysql run-full build tidy clean test bench \
         migrate-up migrate-down \
         docker-up docker-down docker-status \
-        mysql-dev mysql-stop dev-up dev-down
+        mysql-dev mysql-stop redis-dev redis-stop dev-up dev-down \
+        compose-up compose-inmem compose-load compose-down
 
 .DEFAULT_GOAL := help
 
@@ -15,13 +17,15 @@ help:
 	@echo "StageSync Makefile"
 	@echo ""
 	@echo "[개발 환경 — 포폴용 수동 제어]"
-	@echo "  make dev-up           Colima + MySQL 동시 기동 (한 번에)"
-	@echo "  make dev-down         전체 정리 (MySQL + Colima, 배터리 절약)"
+	@echo "  make dev-up           Colima + MySQL + Redis 동시 기동 (한 번에)"
+	@echo "  make dev-down         전체 정리 (Redis + MySQL + Colima, 배터리 절약)"
 	@echo "  make docker-up        Colima VM 만 기동"
 	@echo "  make docker-down      Colima VM 정지"
 	@echo "  make docker-status    Colima + 실행 중 컨테이너 상태"
 	@echo "  make mysql-dev        MySQL 컨테이너만 기동 (Colima 필요)"
 	@echo "  make mysql-stop       MySQL 컨테이너 정지"
+	@echo "  make redis-dev        Redis 컨테이너만 기동 (Colima 필요)"
+	@echo "  make redis-stop       Redis 컨테이너 정지"
 	@echo ""
 	@echo "[빌드·테스트]"
 	@echo "  make tidy             go mod tidy"
@@ -34,6 +38,13 @@ help:
 	@echo "[실행]"
 	@echo "  make run              서버 (inmem fallback)"
 	@echo "  make run-mysql        서버 (MYSQL_DSN 자동 세팅)"
+	@echo "  make run-full         서버 (MYSQL + Redis 양쪽 연결)"
+	@echo ""
+	@echo "[docker compose — 포폴 리뷰용 one-shot]"
+	@echo "  make compose-up       server + mysql + redis (기본)"
+	@echo "  make compose-inmem    server-inmem 만 (외부 의존 없음)"
+	@echo "  make compose-load     + bots-cluster + bots-herd (부하 시나리오)"
+	@echo "  make compose-down     전체 정리"
 	@echo ""
 	@echo "[DB 마이그레이션 수동]"
 	@echo "  make migrate-up       goose up"
@@ -58,9 +69,13 @@ tidy:
 run:
 	go run ./cmd/server
 
-## run-mysql: MySQL 연결 상태로 서버 실행
+## run-mysql: MySQL 연결 상태로 서버 실행 (+ 있으면 Redis 도)
 run-mysql:
-	MYSQL_DSN="$(MYSQL_DSN)" go run ./cmd/server
+	MYSQL_DSN="$(MYSQL_DSN)" REDIS_ADDR="$(REDIS_ADDR)" go run ./cmd/server
+
+## run-full: MySQL + Redis 둘 다 연결 (Phase 7 랭킹 확인)
+run-full:
+	MYSQL_DSN="$(MYSQL_DSN)" REDIS_ADDR="$(REDIS_ADDR)" go run ./cmd/server
 
 ## build: 서버 + 봇 바이너리 빌드
 build:
@@ -122,17 +137,52 @@ mysql-stop:
 	  echo "MySQL 컨테이너 이미 정지됨"; \
 	fi
 
-## dev-up: 개발 환경 전체 기동 (Colima + MySQL)
-dev-up: docker-up mysql-dev
+## redis-dev: 로컬 Redis 컨테이너 기동 (Colima 먼저 필요)
+redis-dev:
+	@colima status >/dev/null 2>&1 || { echo "❌ Colima 미기동. 'make docker-up' 먼저 실행."; exit 1; }
+	@if docker ps --filter name=stagesync-redis -q 2>/dev/null | grep -q .; then \
+	  echo "Redis 컨테이너 이미 실행 중"; \
+	else \
+	  docker run --name stagesync-redis --rm -d \
+	    -p 6379:6379 \
+	    redis:7-alpine; \
+	fi
+
+## redis-stop: 로컬 Redis 컨테이너 종료
+redis-stop:
+	@if docker ps --filter name=stagesync-redis -q 2>/dev/null | grep -q .; then \
+	  docker stop stagesync-redis; \
+	else \
+	  echo "Redis 컨테이너 이미 정지됨"; \
+	fi
+
+## dev-up: 개발 환경 전체 기동 (Colima + MySQL + Redis)
+dev-up: docker-up mysql-dev redis-dev
 	@echo ""
 	@echo "✓ 개발 환경 준비 완료."
 	@echo "  → make run-mysql    # 서버 기동 (MYSQL_DSN 자동 세팅)"
-	@echo "  → make dev-down     # 종료 시 (Colima · MySQL 둘 다 정리)"
+	@echo "  → make dev-down     # 종료 시 (Colima · MySQL · Redis 정리)"
 
-## dev-down: 개발 환경 정리 (MySQL + Colima)
-dev-down: mysql-stop docker-down
+## dev-down: 개발 환경 정리 (Redis + MySQL + Colima)
+dev-down: redis-stop mysql-stop docker-down
 	@echo ""
 	@echo "✓ 개발 환경 정리 완료. 배터리 안전."
+
+## compose-up: docker compose up (server + MySQL + Redis, default profile)
+compose-up:
+	docker compose up --build
+
+## compose-inmem: MySQL / Redis 없이 server-inmem 만 기동
+compose-inmem:
+	docker compose --profile inmem up server-inmem --build
+
+## compose-load: default + 부하 봇 2 종 (cluster + herd) 동시 기동
+compose-load:
+	docker compose --profile load up --build
+
+## compose-down: compose 스택 정리
+compose-down:
+	docker compose --profile load down --remove-orphans
 
 ## clean: 빌드 생성물 정리
 clean:

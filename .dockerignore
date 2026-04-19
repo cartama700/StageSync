@@ -1,0 +1,16 @@
+.git
+.github
+.vscode
+.idea
+bin/
+cover.out
+docs/
+scripts/
+Makefile
+README.md
+README.ko.md
+CHANGELOG.md
+*.md
+docker-compose*.yml
+.env*
+!.env.example

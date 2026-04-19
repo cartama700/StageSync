@@ -1,27 +1,29 @@
-# StageSync Phase 계획 (v2 — REST-first)
+# StageSync Phase 계획 (v3 — MVP-shipping)
 
 > **본 문서의 역할**: 실행 로드맵. 진행 추적 · 학습 트래커 · 의존성 맵.
 > 미션·배경·공고 분석은 [MISSION.md](./MISSION.md) 참조.
-> **v2 시작**: 2026-04-18 (v1 이식 관점에서 REST-first 로 재편)
+> 현재 스냅샷은 [STATUS.md](./STATUS.md) 참조 (PLAN ↔ 실제 리포지토리 대조표).
+> **v3 재편**: 2026-04-19 — 7-9 주짜리 풀 계획을 **"제출 가능한 MVP + 포폴 서사 1개"** 로 축소.
 
 ---
 
 ## 전체 진행 현황
 
 ```
-보너스축    [━━━━━━] 3/3 ✓ 완료
-v0.1 기반   [━━━━━━] 4/4 ✓ 완료
-v0.2 도메인 [▓·······] 1/4 (Phase 5 진행 중)
-v0.3 운영   [·····]   0/3
-v0.4 데이터 [·]       0/1
-v0.5 배포   [·····]   0/3
-v0.6 마감   [·····]   0/3
-            ─────────
-총           7/21 = 33%
+보너스축      [━━━━━━] 3/3 ✓ 완료
+v0.1 기반     [━━━━━━] 4/4 ✓ 완료
+v0.2 도메인   [━━━━━━] 3/3 ✓ 완료 (Phase 5·6·7)
+v0.3 운영     [━━━━━━] 1/1 ✓ 완료 (Phase 9 lite)
+v0.5 배포     [━━━━━━] 2/2 ✓ 완료 (Phase 13 · 14 lite)
+v0.6 마감     [━━━━━━] 2/2 ✓ 완료 (Phase 16 lite · 18)
+v0.7 장애랩   [·]         0/1    (Phase 19 · 제출 후)
+              ─────────
+총             15/15 MVP = 100% ✅
 ```
 
-**현 위치**: **Phase 5 (ガチャ API) 진행 중** — 브랜치 `feat/phase-5-gacha`
-**재편 기록**: 2026-04-18 대전제 재정의 (실시간 중심 → REST 중심). 기존 Phase 1·2 는 보너스축 (A·B) 로 이관.
+**현 위치**: **Phase 18 (문서 마감) ✓ 완료** (2026-04-20) — **제출 가능 상태**
+**다음**: 면접 기간 중 **Phase 19** (HP 데드락 랩) 추가.
+**재편 기록**: 2026-04-19 v2→v3. 11 개 Phase 를 제외하고 MVP 제출에 필수적인 것만 남김.
 
 ---
 
@@ -31,11 +33,11 @@ v0.6 마감   [·····]   0/3
 |---|---|---|---|
 | **보너스** | 0, A, B | "기반 + 실시간 프로토콜 + 핫패스 최적화 쇼케이스" | **3/3 ✓** |
 | **v0.1 기반** | 1-4 | "clean architecture + MySQL + 테스트 CI 확립" | **4/4 ✓** |
-| **v0.2 도메인** | 5-8 | "ガチャ·イベント·ランキング·メール 게임 API" | 1/4 (진행) |
-| **v0.3 운영** | 9-11 | "Prometheus·pprof·비동기 배치·Write-Behind" | 0/3 |
-| **v0.4 데이터** | 12 | "Spanner 듀얼 + hotspot 회피" | 0/1 |
-| **v0.5 배포** | 13-15 | "Docker + K8s + Terraform GKE" | 0/3 |
-| **v0.6 마감** | 16-18 | "Locust 부하 + AI Ops + 문서 마감" | 0/3 |
+| **v0.2 도메인** | 5-7 | "ガチャ·イベント·ランキング — 게임 API 3 핵심" | **2/3** (Phase 5·6 ✓) |
+| **v0.3 운영 lite** | 9 | "Prometheus Histogram + pprof (기반 완료, 확장만)" | 0/1 |
+| **v0.5 배포 lite** | 13, 14 | "Docker profiles 확장 + K8s manifest" | 0/2 |
+| **v0.6 마감** | 16, 18 | "Locust 1 시나리오 + README/GIF/JP 마감" | 0/2 |
+| **v0.7 장애랩 (제출 후)** | 19 | "HP 데드락 랩 — 포폴 서사 1 개" | 0/1 |
 
 ---
 
@@ -47,34 +49,61 @@ Phase 0 뼈대 (chi + h2c) ✓
    ├─ Phase A WebSocket Room ✓
    └─ Phase B AOI + sync.Pool ✓
 
-[v0.1 REST 기반]
-Phase 0 ─→ Phase 1 (clean arch + inmem repo)
-              └─→ Phase 2 (MySQL + goose + 트랜잭션)
-                     └─→ Phase 3 (Validation + 에러 타입 + %w 래핑)
-                            └─→ Phase 4 (테스트 + golangci-lint CI)
+[완료 — v0.1]
+Phase 0 ─→ Phase 1 ─→ Phase 2 ─→ Phase 3 ─→ Phase 4 ✓
 
-[v0.2 도메인]       Phase 5 (ガチャ)     ← Phase 2
-                    Phase 6 (イベント)    ← Phase 2
-                    Phase 7 (ランキング)  ← Phase 2 + Redis
-                    Phase 8 (メール)     ← Phase 2
+[완료 — v0.2 도메인]
+Phase 2 ─→ Phase 5 (ガチャ) ✓
+        ─→ Phase 6 (イベント) ✓
 
-[v0.3 운영]         Phase 9 (Prometheus + pprof)     ← 전역
-                    Phase 10 (비동기 배치 잡)         ← Phase 5-8
-                    Phase 11 (Write-Behind)          ← Phase 10
+[대기 — MVP 필수 경로]
+Phase 6 ─→ Phase 7 (ランキング + Redis)    ← 공고 명시 스택
+                     │
+                     ├─→ Phase 9 lite (Histogram + pprof)  ← 기반 완료
+                     ├─→ Phase 13 (Docker profiles)        ← 기반 완료
+                     │    └─→ Phase 14 lite (K8s manifest)
+                     │         └─→ Phase 16 lite (Locust 1 시나리오)
+                     └─→ Phase 18 (README + GIF + JP 마감)  ← 모든 MVP 이후
 
-[v0.4 데이터]       Phase 12 (Spanner 듀얼)          ← Phase 2, 11
-
-[v0.5 배포]         Phase 13 (Docker compose)        ← 전역
-                    Phase 14 (K8s + Graceful)        ← Phase 13
-                    Phase 15 (Terraform GKE)         ← Phase 14
-
-[v0.6 마감]         Phase 16 (Locust + k6)           ← Phase 15
-                    Phase 17 (AI Ops LLM + SSE)      ← Phase 9
-                    Phase 18 (README/GIF/JP 마감)    ← 모든 Phase
+[제출 후 — 포폴 서사]
+Phase 19 (HP 데드락 랩)                    ← Phase 2, 5
 ```
 
-**병렬 가능**: Phase 5-8 (게임 도메인) 은 서로 독립 — 순서 자유.
-**반드시 마지막**: Phase 18.
+**MVP 크리티컬 패스**: 7 → 9 lite → 13 → 14 lite → 16 lite → 18.
+**제외된 11 Phase**: 아래 "스코프 재편" 섹션에 이유와 함께 명시.
+
+---
+
+## 스코프 재편 기록 (v2 → v3, 2026-04-19)
+
+v2 의 25 Phase 는 총 **7-9 주** 짜리 설계였음. 현 시점에서 3 일차인데 이걸 다 수행하면
+"반쯤 완성된 Phase" 가 쌓여 포폴 완성도가 떨어짐. 포폴은 **"많이 했다" 보다 "완결된 이야기"** 가 중요.
+
+**제외 기준**:
+1. 공고 핵심 스택 (Aurora MySQL · Redis · Docker · K8s · Locust) 증명에 **중복** 되는 것
+2. 실제 클라우드 청구서 없이는 어필 부족한 것 (Spanner, Terraform GKE)
+3. 기본 스택 증명과 독립적인 부가 기능 (LLM, 메일 시스템)
+4. 서사 반복 (장애랩 4 개 중 가장 강력한 1 개 = Phase 19 만 유지)
+
+**제외된 Phase (11 개)**:
+
+| Phase | 원래 내용 | 제외 이유 |
+|---|---|---|
+| ~~Phase 8~~ | メール API | Phase 5·6 와 CRUD 구조 유사 — 도메인 반복 증명 불필요 |
+| ~~Phase 10~~ | 비동기 배치 잡 (errgroup) | 유스케이스가 Phase 8 · 11 · 20 에 의존 — 모두 제외되므로 없어도 무방 |
+| ~~Phase 11~~ | Write-Behind 파이프라인 | Phase 19 v3 에서만 쓰이는데 v3 는 post-submission 옵션 |
+| ~~Phase 12~~ | Spanner 듀얼 | 에뮬레이터로 가능하나 "실제 운영" 어필 부족 → 입사 후 학습 대상 |
+| ~~Phase 15~~ | Terraform GKE | 실제 GCP 없이는 어필 제한 — YAML (Phase 14) 까지로 충분 |
+| ~~Phase 17~~ | AI Ops LLM + SSE | 화려하나 공고 본질 업무와 거리 — 노잼 |
+| ~~Phase 20~~ | 이벤트 랭킹 Hot-Spot 랩 | Phase 7·11 의존. Phase 11 제외로 함께 제외 |
+| ~~Phase 21~~ | 라이브 브로드캐스트 샤딩 랩 | 추정 600 줄 — 제출 일정에 비해 비대 |
+| ~~Phase 22~~ | 서킷 브레이커 랩 | Phase 14 full + 15 + 16 전제 — 모두 축소되므로 함께 축소 |
+
+**축소된 Phase (lite 표시)**:
+- **Phase 9 → lite**: Histogram + pprof 만. Gauge · collector 는 이미 운영 기반 투입으로 완료.
+- **Phase 13 → lite**: profiles (`default / load`) 확장 + bots 이미지만. Dockerfile · compose 는 이미 완료.
+- **Phase 14 → lite**: K8s YAML (deployment / service / hpa / secret) 작성. 실 kubectl apply 불필요 — 리뷰어는 YAML 만 확인.
+- **Phase 16 → lite**: Locust 파일 1 개 + 결과 스크린샷 1 장. GIF 녹화는 Phase 18 에서 함께.
 
 ---
 
@@ -107,11 +136,11 @@ Phase 0 ─→ Phase 1 (clean arch + inmem repo)
 
 **파일**: [`api/proto/roompb/`](../api/proto/roompb/), [`internal/room/`](../internal/room/), [`internal/endpoint/ws.go`](../internal/endpoint/ws.go), [`cmd/bots/main.go`](../cmd/bots/main.go)
 
-**재활용**: 유지. Phase 16 에서 부하 시나리오 확장 기반.
+**재활용**: 유지. Phase 16 lite 에서 부하 시나리오 기반.
 
 ### Phase B — AOI + 최적화 토글 ✓ 완료 (2026-04-18) — 구 Phase 2
 
-**산출물**: Naive vs Pooled 필터 + `sync.Pool` + `atomic.Bool` 토글 + 벤치 (1.5× · 0 allocs)
+**산출물**: Naive vs Pooled 필터 + `sync.Pool` + `atomic.Bool` 토글 + 벤치 (2.48× · 0 allocs)
 
 **배운 Go 개념**:
 - `sync.Pool` 패턴 (Get/Put/New, reset 책임)
@@ -123,7 +152,7 @@ Phase 0 ─→ Phase 1 (clean arch + inmem repo)
 
 **파일**: [`internal/service/aoi/`](../internal/service/aoi/), [`internal/lifecycle/optimize.go`](../internal/lifecycle/optimize.go), [`internal/endpoint/optimize.go`](../internal/endpoint/optimize.go)
 
-**재활용**: `sync.Pool` 패턴은 Phase 9 (로그 버퍼), Phase 11 (Write-Behind) 에서 반복 사용.
+**재활용**: `sync.Pool` 패턴은 Phase 19 v3 에서 재사용 예정.
 
 ---
 
@@ -194,409 +223,338 @@ Phase 0 ─→ Phase 1 (clean arch + inmem repo)
 
 ## v0.2 도메인 — 게임 API
 
-### Phase 5 — ガチャ (Gacha) API — 진행 중 (브랜치: `feat/phase-5-gacha`)
+### Phase 5 — ガチャ (Gacha) API ✓ 완료 (2026-04-18, PR #2 merge)
 
-**목표**: 가중치 RNG + 천장 시스템 + 이력 기록. 10연 뽑기 트랜잭션 원자성 증명.
+**산출물**:
+- 도메인: `Rarity` (R/SR/SSR) · `Card` · `Pool` · `Roll` · `PityState` + `WeightedPick` (O(N) 누적 가중치)
+- 서비스: `Roll()` — pity 가산 → 천장(80회) 판정 → SSR 강제 → 원자적 저장
+- `WithRand` / `WithNow` **옵션 패턴 DI** (테스트 결정성 확보)
+- inmem (`sync.Mutex` + slice/map) · MySQL **단일 트랜잭션** UPSERT (`defer tx.Rollback` + `tx.Commit`)
+- sqlc + goose `00002_gacha.sql` 마이그레이션 · `DBTX` 인터페이스로 `*sql.Tx` 수용
+- 3 REST 엔드포인트
+  - `POST /api/gacha/roll`
+  - `GET  /api/gacha/history/{player_id}`
+  - `GET  /api/gacha/pity/{player_id}/{pool}`
+- `apperror` 통합 (404 / 400 / 500) · validate tag
+- 테스트: **10 000 회 분포 ±5 %** (R 80/SR 17/SSR 3) · 천장 트리거 · 천장 carry-over · 실패 전파 · httptest 핸들러 테이블
+- `cmd/server/main.go` — `openMaybeMySQL` + `buildRepos` 분리로 복수 리포지토리 배선 정리
 
-**MVP 범위** (이번 PR 포함):
-- 도메인: `Card` · `Pool` · `Roll` · `Rarity` (R · SR · SSR) · `PityState`
-- 1 개 하드코딩 예시 풀 (embed 데이터, YAML 은 후속)
-- 가중치 기반 RNG (`math/rand/v2` + 누적 확률 이분 탐색)
-- **천장 시스템**: N 연속 SSR 없으면 다음 roll 확정
-- **트랜잭션 원자성**: 10-roll → `gacha_rolls` N행 INSERT + `gacha_pity` UPSERT 단일 트랜잭션
-- inmem + MySQL 듀얼 저장소
-- sqlc 쿼리 + goose 마이그레이션 (`00002_gacha.sql`)
-- 3 REST 엔드포인트 (roll / history / pity)
-- 테스트: 확률 분포 (10만회 ±5%) · 천장 트리거 · 트랜잭션 롤백
+**배운 Go 개념 (첫 등장)**:
+- `math/rand/v2` 가중치 뽑기 + 누적 테이블
+- `uuid.NewV7()` time-ordered ID
+- `*sql.Tx` 트랜잭션 스코프 + sqlc `DBTX` 인터페이스
+- 옵션 패턴 (`func(*Service)`) DI — 테스트에서 시계·RNG 주입
+- 통계 테스트 (확률 분포 허용 오차 검증)
+- `defer tx.Rollback()` + `tx.Commit()` 관용구 (Commit 성공 시 Rollback no-op)
 
-**스코프 제외** (Phase 5b 또는 후속):
-- YAML 풀 설정 파일 로드
+**주요 파일**:
+[`internal/domain/gacha/`](../internal/domain/gacha/) · [`internal/service/gacha/`](../internal/service/gacha/) · [`internal/persistence/inmem/gacha_repo.go`](../internal/persistence/inmem/gacha_repo.go) · [`internal/persistence/mysql/gacha_repo.go`](../internal/persistence/mysql/gacha_repo.go) · [`internal/persistence/mysql/migrations/00002_gacha.sql`](../internal/persistence/mysql/migrations/00002_gacha.sql) · [`internal/endpoint/gacha.go`](../internal/endpoint/gacha.go)
+
+**후속 이월 (Phase 5b — 선택적)**:
+- YAML 풀 설정 파일 로드 (현재 `pool_data.go` 하드코딩)
 - 재화 (jewel/gem) 차감 로직
 - 멀티 풀 · 픽업 기간 관리
-- 중복 요청 멱등성 (request_id) — Phase 11 Write-Behind 에서
-
-**기술 요소**:
-- `math/rand/v2` + 고정 seed (테스트 재현성)
-- `github.com/google/uuid` v7 (time-ordered roll ID)
-- `sqlc` `Queries` 가 `*sql.Tx` 수용 (`DBTX` 인터페이스)
-- 서비스가 `Repository.WithinTx(fn)` 으로 원자 블록 지정
-
-**Go 개념 (첫 등장)**:
-- `math/rand/v2` 가중치 뽑기 + 이분 탐색
-- UUID v7 (`uuid.NewV7()`)
-- `sql.Tx` 트랜잭션 스코프 + sqlc 연동
-- Service-level 트랜잭션 추상화 (Repository.WithinTx)
-- 통계 테스트 (확률 분포 허용 오차 범위 검증)
-
-**완료 기준 (시연)**:
-- `POST /api/gacha/roll {"player":"p1","pool":"demo","count":10}` → 10 카드 + `is_pity` 필드
-- `GET /api/gacha/history/p1` → 최근 뽑기 이력 N건
-- `GET /api/gacha/pity/p1` → 풀별 천장 카운터
-- 트랜잭션 도중 에러 시뮬 → 롤백 후 DB 변화 없음 (테스트)
-- 10만회 roll 통계 테스트: R/SR/SSR 비율이 선언 가중치 ±5%
-
-**예상 파일 구조**:
-```
-internal/domain/gacha/
-  ├── gacha.go         Card · Pool · Roll · Rarity · PityState
-  ├── errors.go        ErrPoolNotFound · ErrInvalidCount 등
-  └── rng.go           WeightedPick 유틸 (누적 가중치)
-internal/service/gacha/
-  ├── service.go       Service + Repository interface + Roll 메서드
-  ├── pool_data.go     하드코딩 데모 풀 1개
-  └── service_test.go  확률 분포 + 천장 + 표-주도
-internal/persistence/
-  ├── inmem/gacha_repo.go
-  └── mysql/
-      ├── migrations/00002_gacha.sql
-      ├── queries/gacha.sql
-      └── gacha_repo.go
-internal/endpoint/gacha.go + gacha_test.go
-```
-
-**의존성**: Phase 1 (REST 기반) · Phase 2 (sqlc + goose)
-
-**추정 규모**: 코드 약 800 줄 + 테스트 약 300 줄 + SQL 약 80 줄
+- 중복 요청 멱등성 (request_id) — v3 스코프에서 제외됨
 
 ---
 
-### Phase 6 — イベント (Event) API — 대기
+### Phase 6 — イベント (Event) API ✓ 완료 (2026-04-19)
 
-**목표**: 이벤트 라이프사이클 (Announcement → Prologue → Live → End) + 포인트 누적.
+**산출물**:
+- 도메인: `Event` (id·name·start_at·end_at) + `Status` (UPCOMING/ONGOING/ENDED, 시간 기반 derived) + `EventScore` + `RewardTier`
+- 서비스: `Create` (이벤트+보상 티어 묶음) · `Get` (상태 포함) · `ListCurrent` · `AddScore` (ONGOING 게이팅 + delta 상한) · `GetScore` · `GetRewards` (티어별 eligible + claimable)
+- `WithNow` 옵션 패턴 DI — 테스트에서 시계 주입으로 상태 전이 검증
+- inmem (`sync.Mutex` + map/slice) · MySQL (UPSERT `ON DUPLICATE KEY UPDATE points = points + VALUES(points)` 원자적 누적)
+- sqlc + goose `00003_event.sql` 마이그레이션 + schema.sql 동기화
+- 6 REST 엔드포인트
+  - `POST /api/event` (생성 + 보상 티어 한 번에)
+  - `GET  /api/event/current`
+  - `GET  /api/event/{id}`
+  - `POST /api/event/{id}/score`
+  - `GET  /api/event/{id}/score/{playerId}`
+  - `GET  /api/event/{id}/rewards/{playerId}`
+- `apperror` 통합 (400 VALIDATION / 404 NOT_FOUND / 409 CONFLICT — 중복 + ErrNotOngoing / 500)
+- 테스트: 상태 전이 5-case table · AddScore ONGOING 게이팅 · 누적 검증 · Invalid delta · rewards eligibility end-to-end (공유 repo + 서로 다른 clock) · 핸들러 httptest
 
-**기술 요소**:
-- Event 모델 (`start_at`, `end_at`, `status`)
-- 상태 전이 로직 (시간 기반)
-- 플레이어 점수 누적 (`event_scores` 테이블)
-- 보상 수령 엔드포인트
+**배운 Go 개념 (첫 등장)**:
+- 시간 기반 derived 상태 — DB 에 저장하지 않고 `StatusAt(now)` 로 계산
+- MySQL `ON DUPLICATE KEY UPDATE ... + VALUES(col)` 원자적 누적 UPSERT
+- clock DI 로 시각 분기 테스트 (`WithNow(fixedClock(t))`)
+- `validate:"dive"` — 중첩 slice struct 필드 검증
 
-**완료 기준 (시연)**:
-- `GET /api/event/current` → 진행 중 이벤트 리스트
-- `POST /api/event/:id/score` `{"delta":100}` → 누적 반영
-- 이벤트 종료 후 수령 가능 보상 조회
+**주요 파일**:
+[`internal/domain/event/`](../internal/domain/event/) · [`internal/service/event/`](../internal/service/event/) · [`internal/persistence/inmem/event_repo.go`](../internal/persistence/inmem/event_repo.go) · [`internal/persistence/mysql/event_repo.go`](../internal/persistence/mysql/event_repo.go) · [`internal/persistence/mysql/migrations/00003_event.sql`](../internal/persistence/mysql/migrations/00003_event.sql) · [`internal/endpoint/event.go`](../internal/endpoint/event.go)
 
-**의존성**: Phase 2
-
-**추정 규모**: 약 400 줄
+**후속 이월**:
+- 실제 claim 플로우 (인벤토리 이동) → v3 에서 제외 (Phase 8 메일 스킵)
+- 상태 전이 잡 → v3 에서 제외 (Phase 10 스킵 — 시간 기반 derived 로 충분)
 
 ---
 
-### Phase 7 — ランキング (Ranking) API — 대기
+### Phase 7 — ランキング (Ranking) API — **다음 진행 (MVP 필수)**
 
-**목표**: Redis Sorted Set (ZSET) 기반 실시간 랭킹 + 15s 주기 DB 스냅샷.
+**목표**: Redis Sorted Set (ZSET) 기반 실시간 랭킹 + graceful degrade (Redis 없으면 inmem).
+
+**왜 MVP 필수**: 공고가 Redis 를 **명시 스택**으로 요구. 현 스택에서 빠진 가장 큰 구멍.
 
 **기술 요소**:
-- `redis/go-redis/v9` — ZADD, ZRANGE, ZREVRANGE
-- `internal/service/leaderboard/redis.go` + `inmem.go` (graceful degrade)
-- `internal/job/rankingsnapshot/` — 15s ticker goroutine 으로 DB 백업
+- `redis/go-redis/v9` — ZADD, ZRANGE, ZREVRANGE, ZRANK
+- `internal/service/leaderboard/` — `Repository` 인터페이스 · Redis 구현 · inmem 구현
+- `REDIS_ADDR` env 유무로 graceful degrade (Phase 2 의 `MYSQL_DSN` 패턴 그대로)
 - 내 주변 랭킹 조회 (ZRANK + ZRANGE 조합)
+- Phase 6 `AddScore` 와 연동 — 이벤트 점수 반영 시 Redis ZSET 도 업데이트
 
 **Go 개념 (첫 등장)**:
-- Redis 클라이언트 API
-- Ticker-based background job
+- Redis 클라이언트 API (go-redis/v9)
 - Graceful degrade 패턴 (REDIS_ADDR 빈 값 → inmem)
 
 **완료 기준 (시연)**:
-- `GET /api/ranking/top?n=10` → Redis Top 10
-- `GET /api/ranking/me?id=p1` → 내 랭킹 + 주변 ±5
-- Redis 컨테이너 없을 때 inmem 으로 동작
+- `GET /api/ranking/{eventId}/top?n=10` → Top 10
+- `GET /api/ranking/{eventId}/me/{playerId}` → 내 순위 + 주변 ±5
+- `docker compose` 에 Redis 서비스 추가
+- Redis 컨테이너 없이 `go run ./cmd/server` 하면 inmem 으로 자동 fallback
 
-**의존성**: Phase 2 + Phase 6 (score 공급)
+**의존성**: Phase 2 (MySQL — 선택적 스냅샷) + Phase 6 (score 공급)
 
-**추정 규모**: 약 400 줄
-
----
-
-### Phase 8 — メール (Mail) API — 대기
-
-**목표**: 플레이어 우편함 — 수신 · 수령 · 만료.
-
-**기술 요소**:
-- Mail 모델 (`player_id`, `subject`, `body`, `attachments`, `expires_at`, `read_at`)
-- 대량 발송 (운영자 API) — 전체 플레이어 bulk INSERT
-- 수령 시 첨부 아이템 인벤토리로 이동 (트랜잭션)
-- 만료 메일 정리 배치 (Phase 10 에서 잡으로)
-
-**완료 기준 (시연)**:
-- `GET /api/mail` → 미수령 메일 리스트
-- `POST /api/mail/:id/claim` → 보상 수령 + 읽음 처리
-- 만료된 메일은 자동 숨김
-
-**의존성**: Phase 2
-
-**추정 규모**: 약 400 줄
+**추정 규모**: 약 400 줄 (Go) + docker-compose 갱신
 
 ---
 
-## v0.3 운영 — 관측성·비동기
+## v0.3 운영 — 관측성 (축소됨)
 
-### Phase 9 — Prometheus + pprof + 로그 — 대기
+### Phase 9 lite — Histogram + pprof 추가 — 대기
 
-**목표**: 표준 관측 툴체인 정비 + KPI 롤업 잡.
+**왜 lite**: 기반 (`/metrics` Prometheus exposition · 커스텀 Gauge · Go runtime collector · `request_id` slog 전파) 은 **2026-04-19 운영 기반 선행 투입** 에서 이미 완료. 남은 건 HTTP request 계측과 pprof 둘.
 
-**기술 요소**:
-- `prometheus/client_golang` (Counter, Histogram, Gauge)
-- HTTP 요청별 Histogram (p50/p95/p99)
-- `net/http/pprof` 마운트 (`/debug/pprof/*`)
-- 로그 correlation (request_id → slog.With)
-- KPI rollup goroutine (1s ticker → `/api/kpi` 엔드포인트)
-
-**완료 기준 (시연)**:
-- `GET /metrics` → Prometheus scrape 가능
-- `curl /debug/pprof/heap` → 프로필 획득
-- 로그에 request_id 전파 확인
-
-**의존성**: Phase 1+
-
-**추정 규모**: 약 300 줄
-
----
-
-### Phase 10 — 비동기 배치 잡 (errgroup + chan) — 대기
-
-**목표**: 이벤트 집계·만료 메일 정리 등 주기적 백그라운드 잡 틀 확립.
+**목표**: 요청별 latency 관측 + 런타임 진단 툴 노출.
 
 **기술 요소**:
-- `golang.org/x/sync/errgroup` — 잡 묶음 관리
-- `time.NewTicker` 기반 주기 실행
-- 잡 스코프: `JobRunner` 구조체 + `Register(name, interval, fn)`
-- 단일 잡 실패 시 전체 잡 취소 로직
-- Phase 6 이벤트 상태 전이 잡 · Phase 8 메일 만료 잡 실 적용
+- `prometheus.HistogramVec` — `method` × `path` × `status` 레이블
+- 기존 `RequestLogger` 미들웨어 뒤에 Histogram 관측 미들웨어 추가
+- `net/http/pprof` 마운트 (`/debug/pprof/*`) — 프로덕션에선 내부망 한정
+- (선택) `/debug/pprof/*` 경로를 `middleware.Timeout` 에서 제외
 
 **Go 개념 (첫 등장)**:
-- `errgroup.Group` 동시 에러 전파
-- 잡 생명주기 + ctx 취소 전파
+- `prometheus.HistogramVec` 버킷 설계 (p50/p95/p99 가 유의미한 범위)
+- `net/http/pprof` 의 side-effect import
 
 **완료 기준 (시연)**:
-- 잡 3개 동시 실행 (이벤트 전이·메일 정리·랭킹 스냅샷)
-- 한 잡이 panic 시 다른 잡도 정상 종료
-- /api/kpi 에 각 잡 최종 실행 시각 표시
+- `GET /metrics` 에서 `http_request_duration_seconds_bucket{...}` 노출
+- `curl http://localhost:5050/debug/pprof/heap` → pprof 프로필 획득
+- README `docs/API.md` 업데이트
 
-**의존성**: Phase 5-8
+**의존성**: 운영 기반 (2026-04-19 완료분)
 
-**추정 규모**: 약 250 줄
+**추정 규모**: 약 150 줄
 
 ---
 
-### Phase 11 — Write-Behind 파이프라인 — 대기
+## v0.5 배포 — Docker · K8s (축소됨)
 
-**목표**: 핫패스에서 DB I/O 제거. 이벤트 점수·가챠 이력처럼 대량 이벤트를 배치로 DB flush.
+### Phase 13 — Docker profiles 확장 — 대기
+
+**왜 남음**: 기본 Dockerfile + docker-compose (`server` + `mysql` + `server-inmem`) 는 운영 기반 선행 투입에서 완료. 남은 건 profile 확장 + bots 이미지.
+
+**목표**: `docker compose --profile load up` 한 방에 서버 + bots + MySQL + Redis 동시 기동.
 
 **기술 요소**:
-- `github.com/google/uuid` v7 (time-ordered)
-- `chan Record` cap=65536 bounded
-- `select default` 로 non-blocking drop-on-full
-- Flush worker goroutine — 배치 모아서 `INSERT INTO ... VALUES (),(),(...)`
-- 100ms / 1000건 중 먼저 오는 것으로 flush 트리거
-
-**Go 개념 (첫 등장)**:
-- Bounded channel + non-blocking send
-- 백그라운드 worker 패턴
-- UUID v7 time-ordered의 shard key 특성
+- `Dockerfile.bots` — cmd/bots 용 별도 이미지 (또는 동일 멀티타겟)
+- `docker-compose.yml` profile 확장:
+  - `default` — server + MySQL (현재와 동일)
+  - `load` — + bots (herd/cluster 시나리오) + Redis
+- Redis 서비스 추가 (Phase 7 과 동반)
 
 **완료 기준 (시연)**:
-- 부하 테스트 중 DB write lat p99 안정
-- 채널 가득 시 drop 카운터 로그 출력
+- `docker compose --profile load up --build` → 4 컨테이너 모두 Ready + bots 가 server 로 연결됨
 
-**의존성**: Phase 10
+**의존성**: Phase 7 (Redis compose 서비스 필요)
 
-**추정 규모**: 약 300 줄
-
----
-
-## v0.4 데이터 — Spanner
-
-### Phase 12 — Spanner 듀얼 + hotspot 회피 — 대기
-
-**목표**: Aurora MySQL 에 쓰던 레포지토리를 Spanner 로도 전환 가능. `STORE=mysql|spanner` env 로 선택. **hotspot 회피 shard key 설계**가 차별 포인트.
-
-**기술 요소**:
-- `cloud.google.com/go/spanner` + Spanner emulator (`gcr.io/cloud-spanner-emulator/emulator`)
-- `internal/persistence/spanner/` 레포지토리 구현
-- **Hotspot 회피**: UUID v7 + shard prefix 로 순차 쓰기 분산
-- 벤치 표 — MySQL vs Spanner 쓰기 latency 비교
-
-**Go 개념 (첫 등장)**:
-- `spanner.Client` · `ReadOnlyTransaction` · `ReadWriteTransaction`
-- Spanner 스키마 + `INTERLEAVE IN PARENT`
-- Hotspot 이론 + shard key 설계
-
-**완료 기준 (시연)**:
-- 동일 REST API 가 MySQL · Spanner 양쪽에서 동작
-- README 에 latency 비교 표
-
-**의존성**: Phase 2, 11
-
-**추정 규모**: 약 400 줄
+**추정 규모**: Dockerfile 20 줄 + compose 30 줄
 
 ---
 
-## v0.5 배포 — Docker · K8s · Terraform
+### Phase 14 lite — K8s Manifest (작성만) — 대기
 
-### Phase 13 — Docker + compose — 대기
+**왜 lite**: 실제 클러스터 없이 **YAML 파일 + kustomize 구조 + preStop 스크립트** 만 제공. 리뷰어는 YAML 검증 + 설명 문서로 K8s 이해도를 확인하면 충분.
 
-**목표**: `docker compose up` 한 방에 전 스택 기동.
-
-**기술 요소**:
-- `deploy/docker/server.Dockerfile` — multi-stage + **distroless**
-- `deploy/docker/bots.Dockerfile`
-- `deploy/compose/docker-compose.yml` — profiles: `default / load / scale`
-
-**완료 기준 (시연)**: `docker compose --profile load up` → 서버 + 봇 + MySQL + Redis 동시 기동
-
-**추정 규모**: Dockerfile 50 줄 + compose 150 줄
-
----
-
-### Phase 14 — K8s + HPA + Graceful Shutdown — 대기
-
-**목표**: Kubernetes 매니페스트 + SIGTERM drain + preStop hook.
+**목표**: GKE 배포 가능한 최소 매니페스트 셋 + graceful drain 검증.
 
 **기술 요소**:
-- `deploy/k8s/` — namespace, deployment, service, hpa, secret
+- `deploy/k8s/` — `namespace.yaml` · `deployment.yaml` · `service.yaml` · `hpa.yaml` · `configmap.yaml`
 - `preStop: sleep 10` + `terminationGracePeriodSeconds: 60`
-- `signal.NotifyContext` + `http.Server.Shutdown(drainCtx)` 전면 적용
-- Readiness gate (`atomic.Bool` → `/health/ready` 503)
-- HPA CPU 70% 기준
+- Readiness gate — `atomic.Bool` 을 `/health/ready` 로 연결 (drain 시작 시 503)
+- HPA CPU 70%, min 2 / max 10
+- `README` 에 "kubectl apply 하면 어떻게 동작하는지" 설명 (실 배포 없어도 이해 가능)
 
 **Go 개념 (첫 등장)**:
-- `errgroup.WithContext` 전면 (HTTP 서버 + 배치 잡 동시 관리)
-- SIGTERM drain 시퀀스
+- SIGTERM → Ready=false → 기존 요청 drain → Shutdown 시퀀스
+- `atomic.Bool` 로 런타임 readiness 게이트 제어
 
-**완료 기준 (시연)**: `kubectl delete pod` 후 진행 중인 요청 drain 완료 영상
+**완료 기준**:
+- `kubectl apply --dry-run=client -f deploy/k8s/` 통과
+- `/health/ready` 가 drain 중 503 을 반환하는 **유닛 테스트** (실 K8s 없이)
 
-**추정 규모**: YAML 300 줄 + Go 100 줄
+**의존성**: 운영 기반 (graceful shutdown 완료분) · Phase 13
+
+**추정 규모**: YAML 200 줄 + Go 50 줄
 
 ---
 
-### Phase 15 — Terraform GKE — 대기
+## v0.6 마감 — 부하·문서
 
-**목표**: `terraform apply` 로 GKE 클러스터 + Artifact Registry + VPC + Workload Identity 프로비저닝.
+### Phase 16 lite — Locust 1 시나리오 — 대기
+
+**왜 lite**: Locust 파일 1 개 + 결과 스크린샷 1 장이면 "Locust 할 줄 안다" 증명에 충분. k6 대칭 · 3 시나리오 전체 · GIF 는 스킵.
+
+**목표**: 공고 명시 Locust 사용 증명 + 핫패스 성능 1 그래프.
 
 **기술 요소**:
-- `deploy/terraform/main.tf` + `gke.tf` + `variables.tf`
-- Workload Identity 바인딩
-- Artifact Registry 리포 자동 생성
-- `tfvars` 로 환경 분리
+- `deploy/locust/locustfile.py` — **cluster 시나리오 1 개** (이벤트 개시 스파이크 모사)
+  - 50 → 500 유저 램프업 → 30초 유지 → 드롭
+  - `/api/gacha/roll` + `/api/event/{id}/score` + `/api/ranking/{eventId}/top` 3 엔드포인트
+- `docs/BENCHMARKS.md` 에 "Locust cluster" 섹션 추가 — p50/p95/p99 표 + 스크린샷
 
-**완료 기준 (시연)**: 실제 GKE 클러스터 스크린샷 + Pod 동작 확인
+**완료 기준 (시연)**:
+- `locust -f deploy/locust/locustfile.py --host http://localhost:5050 --headless -u 500 -r 10 --run-time 1m`
+- `BENCHMARKS.md` 에 결과 표 + Locust 웹 UI 스크린샷 1 장
 
-**의존성**: Phase 14
+**의존성**: Phase 7 (ranking 엔드포인트 필요) · Phase 13 (docker compose up 으로 실행 기반)
 
-**추정 규모**: HCL 250 줄
-
----
-
-## v0.6 마감 — 부하·AI·문서
-
-### Phase 16 — Locust + k6 부하 시나리오 — 대기
-
-**목표**: 공고 명시 Locust 로 event spike 시뮬 + k6 대칭 제공.
-
-**기술 요소**:
-- `deploy/locust/locustfile.py` — 공고 명시 매칭 시그널
-- `deploy/k6/scenario.js` — 보조
-- `cmd/bots -scenario=even|herd|cluster` CLI 확장
-- README 에 부하 결과 표 + GIF
-
-**시나리오 의미**:
-- **even**: 균등 분산 접속 (기준선)
-- **herd**: 동시 접속 폭주 (thundering herd — 로그인 이벤트)
-- **cluster**: 시간대 집중 (이벤트 개시 스파이크 — Colorful Palette 실무 시나리오)
-
-**완료 기준 (시연)**: GIF — cluster 모드 → P99 스파이크 → 핫패스 최적화 효과 비교
-
-**의존성**: Phase 15
-
-**추정 규모**: Python 150 줄 + JS 100 줄 + Go 100 줄
+**추정 규모**: Python 80 줄 + 스크린샷 + docs 갱신
 
 ---
 
-### Phase 17 — AI Ops Assistant (LLM + SSE) — 대기
-
-**목표**: 대시보드 "Analyze Spike" 버튼 → SSE 로 자연어 진단 스트리밍.
-
-**기술 요소**:
-- `internal/service/llm/` — `Provider` 인터페이스 + `MockLlmProvider` + `OpenAiLlmProvider`
-- `internal/service/ops/spike.go` — 텔레메트리 → 프롬프트 빌더 (순수 함수, 테스트 가능)
-- `/api/ops/analyze/spike` SSE 엔드포인트
-- `text/event-stream` + `http.Flusher`
-- 대시보드 버튼 + EventSource
-
-**Go 개념 (첫 등장)**:
-- SSE + `http.Flusher` 캐스팅
-- Provider 인터페이스 추상화 (Mock/Real 전환)
-- 스트리밍 토큰 `<-chan string`
-
-**완료 기준 (시연)**: 대시보드 버튼 → 타이핑 애니메이션처럼 자연어 진단 스트리밍
-
-**의존성**: Phase 9 (메트릭 공급)
-
-**추정 규모**: 약 400 줄 + HTML 수정
-
----
-
-### Phase 18 — README + Demo GIF + JP 번역 마감 — 대기
+### Phase 18 — README + Demo GIF + JP/ko 동기화 — 대기 (제출 직전 필수)
 
 **목표**: 제출 가능한 상태.
 
 **체크리스트**:
-- [ ] `README.md` 최종 정돈 (GIF, 30초 스크립트)
-- [ ] `README.md` (日本語 기본) 최종 정돈 + `README.ko.md` 동기화 (Phase 0-17 전 내용)
-- [ ] `docs/MISSION.ja.md` 핵심 섹션 JP 번역
-- [ ] 각 Phase demo GIF 녹화 (`demo/*.gif`)
-- [ ] 면접 30초 스크립트 다듬기 (한·일 양쪽)
+- [ ] `README.md` 최상단 30초 스크립트 (JP 기본) 다듬기
+- [ ] `README.ko.md` 동기화 (현재 `README.md` 가 JP/ko 격차 있음)
+- [ ] 데모 GIF 1-2 개 녹화
+  - (1) `docker compose up` → `curl profile + gacha + event + ranking`
+  - (2) `/metrics` 확인 + Locust 부하 스샷
+- [ ] GIF 를 `docs/demo/` 에 배치 후 README 에 embed
+- [ ] `docs/STATUS.md` 최종 갱신 (Phase 7-16 완료 반영)
+- [ ] `CHANGELOG.md` unreleased → v0.1 태그
 - [ ] GitHub Actions 초록 뱃지 확인
-- [ ] 최종 린터 pass 확인
+- [ ] 최종 `golangci-lint` pass 확인
+- [ ] 30초 자기소개 스크립트 (JP 중심 · ko 보조)
 
-**의존성**: 모든 Phase
+**의존성**: 모든 MVP Phase (7, 9 lite, 13, 14 lite, 16 lite)
 
-**추정 규모**: 번역 + 녹화 (코드 거의 없음)
+**추정 규모**: 번역 + 녹화 (코드 거의 없음) · 약 1 일
+
+---
+
+## v0.7 장애 시나리오 랩 (제출 후 서사 추가)
+
+> v3 에서는 **Phase 19 만 유지**. 제출 후 면접 대기 기간에 작업 → "최근 업데이트" 로 어필.
+
+### Phase 19 — HP 동시 차감 데드락 랩 — **제출 후 작업**
+
+**왜 Phase 19 만 남겼나**:
+- 공고 필수 역량 중 "高負荷 경험" 을 증명하는 유일한 Phase
+- Phase 2 (MySQL) · Phase 5 (트랜잭션 관용구) 만 전제 — 독립적으로 구현 가능
+- 서사 구조 (`v1 naive → v2 queue → v3 wb`) 가 면접에서 바로 3 단 이야기로 써짐
+- Phase 20·21·22 는 의존 Phase (7·11·A·B·14·15·16) 가 커서 "가성비" 떨어짐
+
+**목표 (포폴 서사)**: 실시간 대전에서 한 유저에게 집중되는 쓰기 경합 → 행 잠금 데드락을 재현하고, 유저별 큐 직렬화로 해결.
+
+**배경 (실제 경험)**:
+- 부하 테스트(평균)는 통과, 운영에서 예상 초과 동시 요청으로 데드락 발생
+- 유저 데이터 파편화 + 중간 합류 프로젝트 → 아키텍처 근본 변경 불가
+- 제약 하 최선책 = 메시지 큐로 유저별 쓰기 직렬화
+
+**구현 3 단**:
+- **v1-naive**: `SELECT ... FOR UPDATE` 기반 직렬 잠금 — 데드락 재현
+- **v2-queue**: 유저별 파티션 채널 (in-process) 또는 Redis Stream 으로 쓰기 직렬화
+- **v3-redis-wb**: Redis 1차 저장 + bounded channel Write-Behind 플러시
+  (v3 는 시간 있으면만 — v1/v2 만으로도 서사 완결)
+
+**기술 요소**:
+- 전투(Battle) 도메인 최소 구현 — `player_hp` 테이블 + `ApplyDamage(playerID, dmg)`
+- `internal/service/battle/` — 3 구현 스왑
+- k6 또는 Locust 시나리오: 한 타깃 유저에 N 명 동시 공격
+- `docs/BENCHMARKS.md` 에 3 구현 벤치 비교 표
+
+**Go 개념 (첫 등장)**:
+- `SELECT ... FOR UPDATE` · 행 락 · 데드락 재현 조건
+- 유저별 파티션 채널 패턴 (`map[playerID]chan Command`)
+- Bounded channel + non-blocking send (v3 에서)
+
+**완료 기준 (시연)**:
+- v1 에서 데드락 로그 재현 가능
+- v2 로 데드락 0 + p99 안정
+- README 에 v1 vs v2 벤치 비교 표 (v3 는 옵션)
+
+**의존성**: Phase 2 (MySQL), Phase 5 (트랜잭션 관용구)
+
+**추정 규모**: 약 400 줄 (v1 + v2) + 부하 스크립트
+
+**배운 것 (서사 포인트)**:
+1. 부하 테스트는 '평균' 이 아니라 '최악 동시성 시나리오' 로 설계해야 한다
+2. 정합성 vs 성능은 트레이드오프가 아니라 **경합 지점을 어디로 옮길지**의 문제다
 
 ---
 
 ## 학습 추적 — Phase 별 Go 개념 누적
 
-| Phase | 새로 배우는 것 |
-|---|---|
-| 0 | 모듈 · 패키지 · `:=` · `_` · 에러 반환 · chi · h2c |
-| A | protobuf 생성 · oneof 타입 스위치 · `sync.RWMutex` · `defer` · goroutine per conn · `flag` · `signal.NotifyContext` · `select` · 클로저 팩토리 DI |
-| B | `sync.Pool` · `atomic.Bool` · `testing.B` + `b.Loop()` · escape analysis |
-| **1** | **context 전파 전면 · consumer 측 인터페이스 · DTO 매퍼 · 구조체 메서드 핸들러** |
-| **2** | **`sqlx` · `goose` · Transaction scope · `%w` 래핑 · `errors.Is/As` · graceful degrade** |
-| **3** | **validator · sentinel errors · 커스텀 에러 타입 · 공통 에러 미들웨어** |
-| **4** | **`testing.T` · `httptest` · table-driven + `t.Parallel()` · mock repo** |
-| **5** | **`math/rand/v2` · 복잡한 트랜잭션 · 확률 엔진** |
-| **7** | **`redis/go-redis/v9` · Ticker-based job · graceful degrade** |
-| **9** | **`prometheus/client_golang` · `pprof` · slog.With correlation** |
-| **10** | **`errgroup.Group` · 잡 라이프사이클 + ctx 취소** |
-| **11** | **Bounded channel + non-blocking send · UUID v7 · Write-Behind 패턴** |
-| **12** | **`spanner.Client` · `ReadWriteTransaction` · hotspot 회피 shard key** |
-| **14** | **SIGTERM drain · `http.Server.Shutdown` · Readiness gate** |
-| **17** | **SSE + `http.Flusher` · 스트리밍 채널 · Provider 추상화** |
+| Phase | 새로 배우는 것 | 상태 |
+|---|---|---|
+| 0 | 모듈 · 패키지 · `:=` · `_` · 에러 반환 · chi · h2c | ✓ |
+| A | protobuf 생성 · oneof 타입 스위치 · `sync.RWMutex` · `defer` · goroutine per conn · `flag` · `signal.NotifyContext` · `select` · 클로저 팩토리 DI | ✓ |
+| B | `sync.Pool` · `atomic.Bool` · `testing.B` + `b.Loop()` · escape analysis | ✓ |
+| **1** | **context 전파 전면 · consumer 측 인터페이스 · DTO 매퍼 · 구조체 메서드 핸들러** | ✓ |
+| **2** | **`database/sql` · `goose` · Transaction scope · `%w` 래핑 · `errors.Is/As` · graceful degrade** | ✓ |
+| **3** | **validator · sentinel errors · 커스텀 에러 타입 · 공통 에러 미들웨어** | ✓ |
+| **4** | **`testing.T` · `httptest` · table-driven + `t.Parallel()` · mock repo** | ✓ |
+| **5** | **`math/rand/v2` · 복잡한 트랜잭션 · 확률 엔진 · 옵션 패턴 DI** | ✓ |
+| **6** | **시간 기반 derived 상태 · `ON DUPLICATE KEY UPDATE ... + VALUES()` 누적 UPSERT · clock DI · `validate:"dive"`** | ✓ |
+| **운영 기반** | **slog with context · chi middleware 조립 · signal.NotifyContext + srv.Shutdown · `prometheus.GaugeFunc`** | ✓ |
+| **7** | **`redis/go-redis/v9` ZSET · graceful degrade (REDIS 유무)** | ⏳ |
+| **9 lite** | **`prometheus.HistogramVec` · `net/http/pprof`** | ⏳ |
+| **14 lite** | **readiness gate · SIGTERM drain 시퀀스 · K8s manifest 구조** | ⏳ |
+| **19 (post)** | **`SELECT ... FOR UPDATE` · 행 락 · 유저별 파티션 채널 패턴** | ⏳ |
 
 ---
 
-## 추정 일정
+## 추정 일정 (v3 재편 후)
 
-| 마일스톤 | Phase 수 | 누적 일수 (추정) |
-|---|---|---|
-| 보너스축 ✓ | 3 | 0 (완료) |
-| v0.1 기반 | 4 | +7-10 일 |
-| v0.2 도메인 | 4 | +10-14 일 |
-| v0.3 운영 | 3 | +7-10 일 |
-| v0.4 데이터 | 1 | +3-5 일 |
-| v0.5 배포 | 3 | +7-10 일 |
-| v0.6 마감 | 3 | +5-7 일 |
-| **총 완성 예상** | 18 신규 | **약 5-7 주** |
+| 마일스톤 | Phase 수 | 누적 일수 (추정) | 상태 |
+|---|---|---|---|
+| 보너스축 | 3 | — | ✓ 완료 |
+| v0.1 기반 | 4 | — | ✓ 완료 |
+| v0.2 도메인 (5, 6) | 2 | — | ✓ 완료 |
+| **운영 기반 선행** | (Phase 9/13/14 일부) | — | ✓ 완료 |
+| **Phase 7 (Redis 랭킹)** | 1 | **+1-2 일** | ⏳ |
+| **Phase 9 lite (Histogram + pprof)** | 1 | **+0.5 일** | ⏳ |
+| **Phase 13 (Docker profiles)** | 1 | **+0.5 일** | ⏳ |
+| **Phase 14 lite (K8s manifest)** | 1 | **+0.5 일** | ⏳ |
+| **Phase 16 lite (Locust 1개)** | 1 | **+0.5 일** | ⏳ |
+| **Phase 18 (README/GIF/JP 마감)** | 1 | **+1 일** | ⏳ |
+| **MVP 제출 준비 완료** | — | **약 4-5 일** | — |
+| 제출 후 추가 | Phase 19 | +2-3 일 | 선택적 |
 
-일본어 문서 작성·리뷰 대기·Go 학습 곡선에 따라 변동.
+**타임라인 (실제)**:
+- **2026-04-17 (목)**: Phase 0-3 + 보너스축 (A/B) + 초기 인프라 ✓
+- **2026-04-18 (금)**: Phase 4 (CI) + Phase 5 (가챠, PR #2) ✓
+- **2026-04-19 (토)**: Phase 6 + 운영 기반 + Phase 7 + 9 lite + 13 + 14 lite + 16 lite + v2→v3 재편 ✓
+- **2026-04-20 (일)**: Phase 18 (README/ko sync/STATUS/PITCH/CHANGELOG v0.1) ✓ — **제출 가능 상태**
+- **2026-04-21 이후**: Phase 19 추가 (면접 대기 기간)
+
+**실측**: 4 일 만에 15 Phase MVP 완료. 당초 v2 의 7-9 주 계획을 v3 재편 + AI 협업으로 단축.
 
 ---
 
 ## 참조
 
 - [`MISSION.md`](./MISSION.md) — 프로젝트 미션 · 공고 매핑 · 5축 프레임 (SSOT)
+- [`STATUS.md`](./STATUS.md) — 현 시점 스냅샷 (PLAN ↔ 리포지토리 대조)
+- [`API.md`](./API.md) — 엔드포인트 계약
+- [`BENCHMARKS.md`](./BENCHMARKS.md) — 실측 데이터
+- [`adr/`](./adr/) — 기술 선택 기록
 - [`archive/PORTING_GUIDE_v1_legacy.md`](./archive/PORTING_GUIDE_v1_legacy.md) — 이전 관점 (아카이브)
 - [`../README.md`](../README.md) — 채용 담당자용 메인 (日本語 기본)
 - [`../README.ko.md`](../README.ko.md) — 한국어 버전
+- [`../CHANGELOG.md`](../CHANGELOG.md) — 완료된 변경 이력

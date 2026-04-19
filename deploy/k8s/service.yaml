@@ -1,0 +1,19 @@
+# Deployment 의 pod 들에 대한 안정 DNS 엔드포인트.
+# 외부 노출 (Ingress / LoadBalancer) 은 별도 — 여기는 클러스터 내부 ClusterIP 만.
+apiVersion: v1
+kind: Service
+metadata:
+  name: stagesync-server
+  namespace: stagesync
+  labels:
+    app.kubernetes.io/name: stagesync
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  selector:
+    app: stagesync-server
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http

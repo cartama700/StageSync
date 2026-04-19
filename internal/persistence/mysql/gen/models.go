@@ -8,6 +8,28 @@ import (
 	"time"
 )
 
+type Event struct {
+	ID        string
+	Name      string
+	StartAt   time.Time
+	EndAt     time.Time
+	CreatedAt time.Time
+}
+
+type EventReward struct {
+	EventID    string
+	Tier       int32
+	MinPoints  int64
+	RewardName string
+}
+
+type EventScore struct {
+	EventID   string
+	PlayerID  string
+	Points    int64
+	UpdatedAt time.Time
+}
+
 type GachaPity struct {
 	PlayerID  string
 	PoolID    string

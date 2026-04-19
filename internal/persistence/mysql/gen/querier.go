@@ -9,7 +9,12 @@ import (
 )
 
 type Querier interface {
+	AddEventScore(ctx context.Context, arg AddEventScoreParams) error
+	// sqlc 쿼리 — Phase 6 イベント.
+	CreateEvent(ctx context.Context, arg CreateEventParams) error
 	CreateProfile(ctx context.Context, arg CreateProfileParams) error
+	GetEvent(ctx context.Context, id string) (Event, error)
+	GetEventScore(ctx context.Context, arg GetEventScoreParams) (EventScore, error)
 	// sqlc 쿼리 — Phase 5 ガチャ.
 	GetPity(ctx context.Context, arg GetPityParams) (int32, error)
 	// sqlc 쿼리 파일 — 각 쿼리는 '-- name: Xxx :type' 주석으로 이름·반환 형태 선언.
@@ -18,7 +23,10 @@ type Querier interface {
 	// :exec → 실행만 (INSERT/UPDATE/DELETE)
 	// :execrows → 실행 + 영향받은 row 수 반환
 	GetProfile(ctx context.Context, id string) (Profile, error)
+	InsertRewardTier(ctx context.Context, arg InsertRewardTierParams) error
 	InsertRoll(ctx context.Context, arg InsertRollParams) error
+	ListCurrentEvents(ctx context.Context, arg ListCurrentEventsParams) ([]Event, error)
+	ListRewardTiers(ctx context.Context, eventID string) ([]EventReward, error)
 	ListRollsByPlayer(ctx context.Context, arg ListRollsByPlayerParams) ([]GachaRoll, error)
 	UpsertPity(ctx context.Context, arg UpsertPityParams) error
 }

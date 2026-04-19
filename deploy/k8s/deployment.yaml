@@ -1,0 +1,80 @@
+# StageSync server Deployment.
+#
+# drain 흐름 (주의):
+#   K8s 에서 pod 종료 시 SIGTERM 과 Service endpoint 제거가 비동기로 일어남.
+#   → 애플리케이션이 SIGTERM 을 받자마자 listener 를 닫으면 in-flight 요청이 잘림.
+#
+# 일반적으론 `lifecycle.preStop.exec.command: ["/bin/sh","-c","sleep N"]` 로
+# "엔드포인트 제거가 전파될 때까지" 대기시키는 패턴을 쓰지만 —
+# 본 프로젝트 컨테이너 이미지는 distroless/static 기반이라 /bin/sh · sleep 바이너리가 없어 exec preStop 불가.
+#
+# 대신 애플리케이션 레벨에서 동일 효과를 내도록 구현:
+#   1. SIGTERM 수신 → readiness gate 를 draining 으로 전환
+#   2. /health/ready 가 503 반환 시작 → kubelet 이 endpoint 에서 pod 제거
+#   3. 5s 대기 (LB 에 전파될 시간)
+#   4. srv.Shutdown() 으로 in-flight 마무리
+#
+# 이 흐름은 terminationGracePeriodSeconds(60s) 안에 모두 수행됨.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stagesync-server
+  namespace: stagesync
+  labels:
+    app.kubernetes.io/name: stagesync
+    app.kubernetes.io/component: server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: stagesync-server
+  template:
+    metadata:
+      labels:
+        app: stagesync-server
+        app.kubernetes.io/name: stagesync
+        app.kubernetes.io/component: server
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: server
+          image: stagesync:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5050
+              name: http
+          envFrom:
+            - configMapRef:
+                name: stagesync-config
+          env:
+            - name: MYSQL_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: stagesync-secrets
+                  key: mysql-dsn
+            - name: REDIS_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: stagesync-secrets
+                  key: redis-addr
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
