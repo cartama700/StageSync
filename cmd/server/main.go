@@ -21,10 +21,12 @@ import (
 	"github.com/kimsehoon/stagesync/internal/auth"
 	"github.com/kimsehoon/stagesync/internal/config"
 	"github.com/kimsehoon/stagesync/internal/endpoint"
+	"github.com/kimsehoon/stagesync/internal/idempotency"
 	"github.com/kimsehoon/stagesync/internal/lifecycle"
 	"github.com/kimsehoon/stagesync/internal/persistence/inmem"
 	mysqlrepo "github.com/kimsehoon/stagesync/internal/persistence/mysql"
 	redisrepo "github.com/kimsehoon/stagesync/internal/persistence/redis"
+	"github.com/kimsehoon/stagesync/internal/ratelimit"
 	"github.com/kimsehoon/stagesync/internal/room"
 	eventsvc "github.com/kimsehoon/stagesync/internal/service/event"
 	gachasvc "github.com/kimsehoon/stagesync/internal/service/gacha"
@@ -85,6 +87,22 @@ func run() error {
 		return fmt.Errorf("auth: %w", err)
 	}
 
+	// Idempotency — REDIS_ADDR 있으면 Redis, 없으면 inmem.
+	idempStore, idempCleanup, err := openIdempotencyStore(ctx, cfg.RedisAddr, cfg.IdempotencyTTL)
+	if err != nil {
+		return fmt.Errorf("idempotency: %w", err)
+	}
+	defer idempCleanup()
+
+	// Rate Limiter — identity (player / IP) 별 Token Bucket.
+	rateLimiter := ratelimit.New(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	rateLimiter.StartSweeper(1 * time.Minute)
+	defer rateLimiter.Stop()
+	slog.Info("rate limit",
+		"rps", cfg.RateLimitRPS, "burst", cfg.RateLimitBurst,
+		"note", "rps=0 → disabled",
+	)
+
 	metricsHandler := &endpoint.MetricsHandler{Room: rm, Opt: optState}
 	healthHandler := &endpoint.HealthHandler{State: readiness}
 	wsHandler := &endpoint.WSHandler{Room: rm}
@@ -107,9 +125,18 @@ func run() error {
 	// 프로덕션 노출 시에는 ingress 에서 /debug/* 차단 필요 — 지금은 개발 편의.
 	r.Mount("/debug", middleware.Profiler())
 
-	// Timeout 은 Group 안쪽에만 적용 — pprof 를 제외한 모든 앱 라우트.
+	// Timeout · Rate Limit · Idempotency 는 Group 안쪽에만 적용 — pprof 영향 없음.
+	//
+	// 미들웨어 체인 순서 (바깥 → 안쪽):
+	//   RequestID → RequestLogger → RequestMetrics → Recoverer → Timeout
+	//   → RateLimit (per-IP, auth 전)
+	//   → Idempotency (write 요청 중복 차단)
+	//   → [RequireAuth] (보호 그룹)
+	//   → 핸들러
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(cfg.RequestTimeout))
+		r.Use(endpoint.RateLimit(rateLimiter))
+		r.Use(endpoint.Idempotency(idempStore))
 
 		// --- 공개 라우트 (인증 불필요) ---
 		metricsHandler.Mount(r)
@@ -227,6 +254,24 @@ func openLeaderboard(ctx context.Context, addr string) (leaderboardBackend, func
 type leaderboardBackend interface {
 	rankingsvc.Store
 	eventsvc.LeaderboardWriter
+}
+
+// openIdempotencyStore — REDIS_ADDR 있으면 Redis, 없으면 inmem.
+// inmem 모드는 단일 프로세스 기준 — 다중 Pod 에서는 Redis 필수.
+func openIdempotencyStore(ctx context.Context, addr string, ttl time.Duration) (idempotency.Store, func(), error) {
+	if addr == "" {
+		slog.Info("idempotency", "backend", "inmem", "ttl", ttl)
+		return idempotency.NewInmemStore(ttl), func() {}, nil
+	}
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := client.Ping(pingCtx).Err(); err != nil {
+		_ = client.Close()
+		return nil, nil, fmt.Errorf("redis ping %s: %w", addr, err)
+	}
+	slog.Info("idempotency", "backend", "redis", "addr", addr, "ttl", ttl)
+	return idempotency.NewRedisStore(client, ttl), func() { _ = client.Close() }, nil
 }
 
 // buildAuth — AUTH_SECRET 기반 Issuer + Validator 생성.

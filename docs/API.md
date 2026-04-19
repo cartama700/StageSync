@@ -6,6 +6,18 @@
 **베이스 URL**: `http://localhost:5050` (기본값, `LISTEN_ADDR` 로 변경)
 **엔드포인트 수**: 20 개 (Auth 1 · Health/Observability 5 · Profile 2 · Gacha 3 · Event 6 · Ranking 2 · Optimize 1 · WebSocket 1 · pprof)
 
+**공통 미들웨어** (모든 `/api/*` 에 적용):
+| 미들웨어 | 동작 | 비활성 조건 |
+|---|---|---|
+| `RequestID` | chi 표준 — 요청마다 UUID | 없음 |
+| `RequestLogger` | slog 에 `request_id` 주입 + access log | 없음 |
+| `RequestMetrics` | Prometheus Histogram 기록 | 없음 |
+| `Recoverer` | panic → 500 | 없음 |
+| `Timeout` | `REQUEST_TIMEOUT` 후 deadline 취소 | 없음 |
+| `RateLimit` | Token Bucket (identity = player / IP) | `RATE_LIMIT_RPS=0` |
+| `Idempotency` | `Idempotency-Key` 헤더 기반 중복 차단 | 헤더 미전송 · GET/HEAD |
+| `RequireAuth` | JWT 검증 (보호 라우트만) | `AUTH_SECRET=""` |
+
 모든 응답은 `Content-Type: application/json` (바이너리 WebSocket 제외).
 공통 에러 응답 포맷 ([`internal/apperror`](../internal/apperror/) 참조):
 
@@ -25,6 +37,62 @@
 | `NOT_FOUND` | 404 |
 | `CONFLICT` | 409 |
 | `INTERNAL` | 500 |
+
+---
+
+## Rate Limit (レート制限)
+
+Token Bucket 기반. `RATE_LIMIT_RPS` / `RATE_LIMIT_BURST` 환경변수로 설정 (기본 10 rps · burst 20).
+
+**식별자 우선순위**:
+1. 인증된 `player_id` (ctx 에 auth.Claims 있으면)
+2. `X-Forwarded-For` 첫 IP (프록시 뒤 배치 시)
+3. `X-Real-IP`
+4. `r.RemoteAddr` (폴백)
+
+**초과 시 응답**:
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 1
+Content-Type: application/json
+
+{"code":"RATE_LIMITED","message":"too many requests — retry later"}
+```
+
+**비활성**: `RATE_LIMIT_RPS=0` 설정 시 미들웨어 pass-through.
+
+---
+
+## Idempotency-Key
+
+Stripe API 와 동일한 패턴. 클라이언트가 `Idempotency-Key: <uuid>` 헤더를 전송하면 같은 키로 온 중복 요청은 **핸들러 재실행 없이 캐시된 응답 리플레이**.
+
+**용도**: 네트워크 지연으로 인한 "따닥" (밀리초 단위 중복 클릭) 방어. 예: 10 연 가챠 버튼 두 번 누름 → 첫 번째 응답만 DB 까지 도달, 두 번째는 캐시 히트.
+
+**요청 예**:
+```bash
+curl -X POST http://localhost:5050/api/gacha/roll \
+     -H "Authorization: Bearer $JWT" \
+     -H "Idempotency-Key: $(uuidgen)" \
+     -H "Content-Type: application/json" \
+     -d '{"player":"p1","pool":"demo","count":10}'
+```
+
+**캐시 히트 시 응답**:
+- 원 응답과 동일한 status + body
+- 추가 헤더 `Idempotency-Replayed: true`
+
+**스코프**: authenticated player 가 있으면 `<player>:<key>`, 없으면 `anon:<key>` — 다른 유저가 같은 키를 보내도 충돌 없음.
+
+**적용 조건**:
+- POST/PUT/DELETE 등 write 메서드만 캐시 (GET/HEAD 는 pass-through).
+- `Idempotency-Key` 헤더 없으면 pass-through.
+
+**TTL**: `IDEMPOTENCY_TTL` 환경변수 (기본 5 분).
+
+**저장소**:
+- `REDIS_ADDR` 설정 시: Redis (`SET NX EX`) — 다중 Pod 안전.
+- 미설정 시: inmem (단일 프로세스 한정).
 
 ---
 

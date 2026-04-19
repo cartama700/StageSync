@@ -38,6 +38,15 @@ type Config struct {
 
 	// AuthTokenTTL — 발급된 JWT 의 유효기간. 기본 15 분.
 	AuthTokenTTL time.Duration
+
+	// RateLimitRPS — identity 별 평균 초당 허용 요청 수. 0 이면 Rate Limit 비활성.
+	RateLimitRPS float64
+
+	// RateLimitBurst — identity 별 버스트 허용량 (토큰 버킷 최대 크기). 기본 20.
+	RateLimitBurst int
+
+	// IdempotencyTTL — `Idempotency-Key` 캐시 유효시간. 기본 5 분.
+	IdempotencyTTL time.Duration
 }
 
 // Load — 환경변수에서 Config 생성. 유효성 에러 발생 시 즉시 실패.
@@ -51,6 +60,9 @@ func Load() (*Config, error) {
 		RedisAddr:       os.Getenv("REDIS_ADDR"),
 		AuthSecret:      os.Getenv("AUTH_SECRET"),
 		AuthTokenTTL:    getDurationEnv("AUTH_TOKEN_TTL", 15*time.Minute),
+		RateLimitRPS:    getFloatEnv("RATE_LIMIT_RPS", 10),
+		RateLimitBurst:  getIntEnv("RATE_LIMIT_BURST", 20),
+		IdempotencyTTL:  getDurationEnv("IDEMPOTENCY_TTL", 5*time.Minute),
 	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -73,6 +85,15 @@ func (c *Config) validate() error {
 	if c.AuthTokenTTL <= 0 {
 		return fmt.Errorf("AUTH_TOKEN_TTL must be > 0, got %v", c.AuthTokenTTL)
 	}
+	if c.RateLimitRPS < 0 {
+		return fmt.Errorf("RATE_LIMIT_RPS must be >= 0, got %v", c.RateLimitRPS)
+	}
+	if c.RateLimitBurst <= 0 {
+		return fmt.Errorf("RATE_LIMIT_BURST must be > 0, got %v", c.RateLimitBurst)
+	}
+	if c.IdempotencyTTL <= 0 {
+		return fmt.Errorf("IDEMPOTENCY_TTL must be > 0, got %v", c.IdempotencyTTL)
+	}
 	return nil
 }
 
@@ -94,6 +115,28 @@ func getDurationEnv(key string, def time.Duration) time.Duration {
 	}
 	if d, err := time.ParseDuration(raw); err == nil {
 		return d
+	}
+	return def
+}
+
+func getIntEnv(key string, def int) int {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return def
+	}
+	if n, err := strconv.Atoi(raw); err == nil {
+		return n
+	}
+	return def
+}
+
+func getFloatEnv(key string, def float64) float64 {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return def
+	}
+	if f, err := strconv.ParseFloat(raw, 64); err == nil {
+		return f
 	}
 	return def
 }
