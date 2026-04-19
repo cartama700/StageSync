@@ -102,32 +102,26 @@
 
 ---
 
-## 5. 어뷰징 방어 — Rate Limit / Idempotency 未実装
+## 5. 어뷰징 방어 — Rate Limit / Idempotency — ✅ **MVP 수준 구현 완료 (2026-04-20)**
 
-### 현상
-- `internal/endpoint/middleware.go` 에 **Request timeout** 만 있음.
-- **Rate Limit · 멱등성 키 검증 · CAPTCHA · 리플레이 방어** 모두 없음.
+### 구현 (현재 상태)
+- [`internal/ratelimit/`](../internal/ratelimit/) — Token Bucket per identity (`golang.org/x/time/rate` 기반) · TTL sweep 고루틴 · nil 리미터 pass-through
+- [`internal/idempotency/`](../internal/idempotency/) — `Store` 인터페이스 + Redis 구현 (`SET NX EX`) + inmem 구현 (lazy expiration + periodic Sweep)
+- [`endpoint.RateLimit`](../internal/endpoint/ratelimit.go) 미들웨어 — identity 우선순위: authenticated player → X-Forwarded-For → X-Real-IP → RemoteAddr
+- [`endpoint.Idempotency`](../internal/endpoint/idempotency.go) 미들웨어 — write 요청만 적용, GET/HEAD + 헤더 없으면 pass-through, 히트 시 `Idempotency-Replayed: true` 헤더 포함 응답 리플레이
+- **Graceful degrade**: `RATE_LIMIT_RPS=0` 또는 `REDIS_ADDR=""` → 미들웨어 자동 비활성
+- **적용 범위**: `/api/*` 전역 (chi Group · 공개/보호 구분 없이). auth 전에 평가되므로 현재는 **per-IP** 기반 — authenticated per-player 로 승격은 후속
 
-### 리스크
-- 클라가 10 연 가챠 버튼을 네트워크 지연 악용해 "따닥" (밀리초 단위 중복 클릭) → 같은 요청 N 번 처리.
-- MySQL UPSERT 로 pity 카운터 무결성 자체는 보장되지만 (`ON DUPLICATE KEY UPDATE`), **중복 처리의 DB 부하 자체는 방어 못 함**.
-
-### 本来의 正解
-1. **Idempotency Key**:
-   - 클라가 `Idempotency-Key: <uuid>` 헤더 포함.
-   - 서버 `AuthMiddleware` 뒤에 `IdempotencyMiddleware` 추가.
-   - Redis `SET NX EX 60s key:<player>:<uuid> = <response-snapshot>`.
-   - 같은 키 재요청 시 저장된 응답 리플레이 → 즉시 응답, DB 까지 내려가지 않음.
-2. **Rate Limit**:
-   - `go.uber.org/ratelimit` 또는 `x/time/rate` Token Bucket.
-   - 유저별 (예: 가챠 1 초당 1 회) + IP 별 (예: 100 rps) 이중.
-   - 초과 시 `429 Too Many Requests` + `Retry-After` 헤더.
-3. **분산 락** (심각한 경우):
-   - Redis `SETNX` 로 짧은 분산 락 (ex. `lock:gacha:p1` TTL 2s) → 한 플레이어당 동시 1 건만 허용.
+### 남은 과제
+1. **per-player rate limit**: RateLimit 을 RequireAuth 뒤에도 한 번 더 배치하여, 인증된 요청은 per-player 로 엄격히 제한.
+2. **Distributed Rate Limit**: 현재 inmem bucket map → Pod 수 × RPS 가 실제 상한. 엄격한 글로벌 제한이 필요하면 Redis `INCR` + TTL 로 교체.
+3. **Backoff hints**: 현재 `Retry-After: 1` 고정. token bucket 의 다음 토큰 생성 시각을 계산해 동적 설정 가능.
+4. **Idempotency body hashing**: 현재 같은 키면 body 무시. Stripe 는 body 해시도 검증해서 "같은 키에 다른 body" 를 거절 — 추가 강화 여지.
 
 ### 면접 대응
-> 「DB 단의 UPSERT 로 **pity 카운터의 정합성은 보장** 되지만, 중복 요청이 DB 까지 내려가는 **낭비와 레이스** 자체는 현 구현이 막지 못합니다.
-> 프로덕션이라면 **Idempotency-Key 헤더 + Redis `SET NX`** 로 네트워크 계층에서 중복 제거하고, **Token Bucket Rate Limit** 미들웨어를 `internal/endpoint/middleware.go` 에 추가하는 게 정석입니다. 둘 다 `chi` 미들웨어 패턴에 자연스럽게 녹아들어갑니다.」
+> 「**Idempotency-Key + Redis `SET NX`** 미들웨어와 **Token Bucket Rate Limit** 을 `internal/endpoint/` 에 추가했습니다.
+> 클라가 10 連ガチャ 버튼을 "따닥" 클릭해도 Idempotency-Key 가 일치하면 DB 까지 도달하지 않고 캐시된 응답이 리플레이됩니다. Rate Limit 은 평시 10 rps · burst 20 으로 identity (authenticated player → X-Forwarded-For → RemoteAddr) 별 독립 버킷.
+> 남은 한계는 per-Pod rate limit (분산 환경에서 전체 상한이 Pod 수 × RPS) 과 body 해싱 부재 — 둘 다 Redis `INCR` + body hash 비교로 후속 강화 가능합니다.」
 
 ---
 
