@@ -8,7 +8,8 @@ REDIS_ADDR ?= 127.0.0.1:6379
         migrate-up migrate-down \
         docker-up docker-down docker-status \
         mysql-dev mysql-stop redis-dev redis-stop dev-up dev-down \
-        compose-up compose-inmem compose-load compose-down
+        compose-up compose-inmem compose-load compose-down \
+        battle-bench-naive battle-bench-queue
 
 .DEFAULT_GOAL := help
 
@@ -89,6 +90,14 @@ test:
 ## bench: AOI 벤치마크 (보너스축 증명)
 bench:
 	go test -bench=. -benchmem -benchtime=3s -count=3 ./internal/service/aoi/
+
+## battle-bench-naive: Phase 19 v1-naive 실측 (MYSQL_DSN 필수)
+battle-bench-naive:
+	MYSQL_DSN="$(MYSQL_DSN)" go run ./cmd/battlebench -impl=naive -n=100 -target=boss-1
+
+## battle-bench-queue: Phase 19 v2-queue 실측 (MYSQL_DSN 필수)
+battle-bench-queue:
+	MYSQL_DSN="$(MYSQL_DSN)" go run ./cmd/battlebench -impl=queue -n=100 -target=boss-1
 
 ## migrate-up: goose up CLI 실행 (서버 기동과 별도로 수동 마이그레이션)
 migrate-up:

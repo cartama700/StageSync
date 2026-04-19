@@ -55,3 +55,10 @@ CREATE TABLE event_rewards (
     reward_name VARCHAR(128) NOT NULL,
     PRIMARY KEY (event_id, tier)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Phase 19 — HP 同時減算デッドロックラボ (battle domain)
+CREATE TABLE player_hp (
+    player_id  VARCHAR(64) NOT NULL PRIMARY KEY,
+    hp         INT         NOT NULL,
+    updated_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

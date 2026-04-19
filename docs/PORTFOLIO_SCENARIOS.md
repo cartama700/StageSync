@@ -8,7 +8,7 @@
 
 ---
 
-## ✅ 구현 예정 — Phase 19: HP 동시 차감 데드락 랩 (제출 후)
+## ✅ 구현 완료 — Phase 19: HP 동시 차감 데드락 랩 (2026-04-20)
 
 ### 배경 (실제 경험 기반)
 
@@ -58,6 +58,19 @@ Phase 2 (MySQL) · Phase 5 (트랜잭션 관용구) — 이미 완료. 독립적
 **추정 규모**: v1 + v2 약 400 줄 (Go) + 부하 스크립트 100 줄. 2-3 일.
 
 상세: [`PLAN.md`](./PLAN.md#phase-19--hp-동시-차감-데드락-랩--제출-후-작업) Phase 19 섹션.
+
+### 실제 구현 (2026-04-20)
+
+- [`internal/service/battle/service.go`](../internal/service/battle/service.go) — `V1Naive` + `V2UserQueue` + `Applier` 인터페이스
+- [`internal/persistence/mysql/battle_repo.go`](../internal/persistence/mysql/battle_repo.go) — `SELECT ... FOR UPDATE` + `UPDATE` 트랜잭션
+- [`internal/persistence/inmem/battle_repo.go`](../internal/persistence/inmem/battle_repo.go) — MySQL 없을 때 fallback (락 경합 재현 불가, 스모크 테스트용)
+- [`internal/endpoint/battle.go`](../internal/endpoint/battle.go) — `POST /api/battle/damage`
+- [`cmd/battlebench/main.go`](../cmd/battlebench/main.go) — MySQL 연결 + N 고루틴 병렬 공격 + 통계 집계 CLI
+- 단위 테스트: `V1Naive` 는 동시 DB 호출 허용 · `V2UserQueue` 는 `inFlight == 1` 보장 (락 경합 제거 증명)
+- `BATTLE_IMPL=naive|queue` 환경변수로 런타임 전환
+- 벤치 결과표: [`BENCHMARKS.md`](./BENCHMARKS.md) Phase 19 섹션
+
+**v3 (Redis Write-Behind) 는 별도 PR 로 이월** — Phase 11 (Write-Behind 파이프라인) 과 함께 구현 예정.
 
 ---
 

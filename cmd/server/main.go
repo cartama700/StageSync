@@ -28,6 +28,7 @@ import (
 	redisrepo "github.com/kimsehoon/stagesync/internal/persistence/redis"
 	"github.com/kimsehoon/stagesync/internal/ratelimit"
 	"github.com/kimsehoon/stagesync/internal/room"
+	battlesvc "github.com/kimsehoon/stagesync/internal/service/battle"
 	eventsvc "github.com/kimsehoon/stagesync/internal/service/event"
 	gachasvc "github.com/kimsehoon/stagesync/internal/service/gacha"
 	profilesvc "github.com/kimsehoon/stagesync/internal/service/profile"
@@ -75,11 +76,15 @@ func run() error {
 	defer redisCleanup()
 
 	profileRepo, gachaRepo, eventRepo := buildRepos(db)
+	battleRepo := buildBattleRepo(db)
 	profileService := profilesvc.NewService(profileRepo)
 	gachaPools := gachasvc.NewStaticPoolRegistry()
 	gachaService := gachasvc.NewService(gachaRepo, gachaPools)
 	eventService := eventsvc.NewService(eventRepo, eventsvc.WithLeaderboard(leaderboard))
 	rankingService := rankingsvc.NewService(leaderboard)
+	battleImpl := battlesvc.Implementation(cfg.BattleImpl)
+	battleApplier := battlesvc.Build(battleImpl, battleRepo)
+	slog.Info("battle", "impl", battleImpl, "note", "Phase 19 lab — naive|queue")
 
 	// Auth — AUTH_SECRET 미설정 시 issuer=nil, validator=nil → /api/auth/login 500 + 미들웨어는 pass-through.
 	authIssuer, authValidator, err := buildAuth(cfg.AuthSecret, cfg.AuthTokenTTL)
@@ -111,6 +116,7 @@ func run() error {
 	gachaHandler := &endpoint.GachaHandler{Service: gachaService}
 	eventHandler := &endpoint.EventHandler{Service: eventService}
 	rankingHandler := &endpoint.RankingHandler{Service: rankingService}
+	battleHandler := &endpoint.BattleHandler{Applier: battleApplier, ImplLabel: string(battleImpl)}
 	authHandler := &endpoint.AuthHandler{Issuer: authIssuer}
 	promHandler := endpoint.NewPrometheusHandler(rm, optState)
 
@@ -148,6 +154,7 @@ func run() error {
 		profileHandler.Mount(r) // 프로필 create/get 은 공개 (signup 성격)
 		eventHandler.Mount(r)   // 이벤트 조회·점수 — 향후 score POST 만 분리 보호 예정
 		optHandler.Mount(r)     // AOI 토글 — 개발 편의 (프로덕션은 admin 인증 필요)
+		battleHandler.Mount(r)  // Phase 19 HP 데드락 랩 — 데모·벤치용 (프로덕션은 Auth 필수)
 
 		// --- 보호 라우트 (Authorization: Bearer <jwt> 필수) ---
 		// AUTH_SECRET 미설정 시 RequireAuth 는 pass-through → 기존 동작 호환.
@@ -299,6 +306,15 @@ func buildRepos(db *sql.DB) (profilesvc.Repository, gachasvc.Repository, eventsv
 		return inmem.NewProfileRepo(), inmem.NewGachaRepo(), inmem.NewEventRepo()
 	}
 	return mysqlrepo.NewProfileRepo(db), mysqlrepo.NewGachaRepo(db), mysqlrepo.NewEventRepo(db)
+}
+
+// buildBattleRepo — Phase 19 전용. MySQL 있으면 실 FOR UPDATE 재현, 없으면 inmem.
+// inmem 은 단순 mutex 이므로 락 경합 재현 불가 — 벤치는 반드시 MySQL 로.
+func buildBattleRepo(db *sql.DB) battlesvc.Repo {
+	if db == nil {
+		return inmem.NewBattleRepo()
+	}
+	return mysqlrepo.NewBattleRepo(db)
 }
 
 func parseLogLevel(s string) slog.Level {

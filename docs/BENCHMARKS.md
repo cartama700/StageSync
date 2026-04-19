@@ -85,6 +85,76 @@ BenchmarkPooled-16    3718339     654.6 ns/op    0 B/op    0 allocs/op
 
 ---
 
+## Phase 19 — HP 同時減算デッドロック ラボ
+
+> 실 운영에서 겪었던 "한 유저 row 에 트래픽이 쏠리면 락 경합" 장애 패턴을 재현 · 해결 · 벤치.
+> 재현 도구: [`cmd/battlebench/main.go`](../cmd/battlebench/main.go) (MySQL 필수)
+> 배경 · 설계 논리: [`PORTFOLIO_SCENARIOS.md`](./PORTFOLIO_SCENARIOS.md) #0
+
+**시나리오**: 한 타깃 playerID (예: `boss-1`) 에 100 고루틴이 동시에 `ApplyDamage(10)` 를 호출.
+**재현 조건 (권장)**: `SET GLOBAL innodb_lock_wait_timeout = 2` 로 설정하면 v1-naive 의 lock wait 에러가 선명히 재현됨.
+
+### 실행 방법
+
+```bash
+# MySQL 기동 (docker-compose 의 mysql 서비스).
+docker compose up mysql -d
+# 서버 최초 1 회 실행 → goose 가 자동 마이그레이션 (player_hp 테이블 생성).
+make run-mysql
+
+# 벤치 실행 — v1-naive
+MYSQL_DSN='root:root@tcp(127.0.0.1:3306)/stagesync?parseTime=true' \
+  go run ./cmd/battlebench -impl=naive -n=100 -target=boss-1
+
+# 벤치 실행 — v2-queue
+MYSQL_DSN='...' go run ./cmd/battlebench -impl=queue -n=100 -target=boss-1
+```
+
+Makefile 단축:
+```
+make battle-bench-naive
+make battle-bench-queue
+```
+
+### 결과 (2026-MM-DD 측정 예정)
+
+| 지표 | v1-naive (FOR UPDATE) | v2-queue (playerID 단일 워커) |
+|---|---|---|
+| 처리량 (req/s) | ______ | ______ |
+| 성공률 | ______% | ______% (100 기대) |
+| lock wait 에러 수 | ______ | 0 (기대) |
+| p50 latency | ______ ms | ______ ms |
+| p95 latency | ______ ms | ______ ms |
+| p99 latency | ______ ms | ______ ms |
+| 최종 HP 일치 여부 | 실패 건은 반영 안 됨 | `hp_init - damage × n` 과 정확히 일치 |
+
+### 설계 논리
+
+**v1-naive** — 모든 요청이 MySQL 로 직접 흘러가 `SELECT ... FOR UPDATE` 로 행 락 대기.
+- 장점: 구현 단순, 정합성은 MySQL 이 보장.
+- 단점: 같은 playerID 에 폭증 시 락 큐 + timeout 에러, p99 급증.
+
+**v2-queue** — `playerID → chan queueReq` 맵 + 전용 워커 고루틴으로 **Go 레벨 직렬화**.
+- 장점: DB 락 경합 0, p99 안정, 에러율 0.
+- 단점: 단일 프로세스 기준 — 다중 Pod 에선 Pod 별 워커 × DB 락 경합 부활.
+  분산 환경은 Redis Stream · NATS 같은 **외부 분산 큐** 로 승격 필요 (향후 v3).
+
+### 서사 (면접용)
+
+> 「실 운영에서 '평균 부하 테스트는 통과했는데 이벤트 개시 때만 특정 유저 row 에 트래픽이 쏠려 lock wait 에러가 쌓이는' 장애를 겪었습니다. 본 랩은 그 상황을 MySQL `FOR UPDATE` + 100 동시 요청으로 재현하고, **경합 지점을 DB 레벨 → Go 레벨로 옮기는** 해결책을 3 단계로 비교합니다.
+>
+> **배운 것**:
+> 1. 부하 테스트는 '평균' 이 아니라 '최악 동시성 시나리오' 로 설계해야 한다.
+> 2. 정합성 vs 성능은 트레이드오프가 아니라 **경합 지점을 어디로 옮길지**의 문제.」
+
+### TODO
+
+- [ ] `-dsn` 플래그로 `innodb_lock_wait_timeout=2` 설정해서 v1 에러율 선명히 재현
+- [ ] v3-redis-wb (Redis 1차 저장 + bounded channel Write-Behind) 구현 후 재측정
+- [ ] Grafana 대시보드 스크린샷을 `docs/assets/phase-19-*.png` 에 저장
+
+---
+
 ## TODO — 추가 벤치마크 (Phase 9·16)
 
 - Gacha 10-roll p99 latency (in-memory vs MySQL 트랜잭션)

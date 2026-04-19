@@ -47,6 +47,10 @@ type Config struct {
 
 	// IdempotencyTTL — `Idempotency-Key` 캐시 유효시간. 기본 5 분.
 	IdempotencyTTL time.Duration
+
+	// BattleImpl — Phase 19 전투 데미지 구현 선택.
+	// "naive" (v1 — FOR UPDATE) | "queue" (v2 — playerID 별 단일 워커). 기본 "naive".
+	BattleImpl string
 }
 
 // Load — 환경변수에서 Config 생성. 유효성 에러 발생 시 즉시 실패.
@@ -63,6 +67,7 @@ func Load() (*Config, error) {
 		RateLimitRPS:    getFloatEnv("RATE_LIMIT_RPS", 10),
 		RateLimitBurst:  getIntEnv("RATE_LIMIT_BURST", 20),
 		IdempotencyTTL:  getDurationEnv("IDEMPOTENCY_TTL", 5*time.Minute),
+		BattleImpl:      getEnv("BATTLE_IMPL", "naive"),
 	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
