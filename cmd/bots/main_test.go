@@ -26,8 +26,8 @@ func TestScenarios_BoundsAndDeterminism(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		scen     scenario
+		name       string
+		scen       scenario
 		minX, maxX float64
 		minY, maxY float64
 	}{

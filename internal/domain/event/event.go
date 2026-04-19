@@ -47,7 +47,7 @@ type EventScore struct {
 // 플레이어 점수가 MinPoints 이상이면 Reward 획득 가능.
 type RewardTier struct {
 	EventID    string
-	Tier       int    // 1, 2, 3 ... 오름차순
+	Tier       int // 1, 2, 3 ... 오름차순
 	MinPoints  int64
 	RewardName string
 }

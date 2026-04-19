@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/kimsehoon/stagesync/internal/lifecycle"
@@ -14,9 +15,9 @@ import (
 // PrometheusHandler — Prometheus 포맷 `/metrics` 엔드포인트 + 미들웨어가 관측할 histogram 소유.
 // 격리된 Registry 를 써서 테스트 간 상태 오염 방지.
 type PrometheusHandler struct {
-	reg       *prometheus.Registry
-	handler   http.Handler
-	httpDurH  *prometheus.HistogramVec
+	reg      *prometheus.Registry
+	handler  http.Handler
+	httpDurH *prometheus.HistogramVec
 }
 
 // NewPrometheusHandler — 격리된 Registry 로 생성.
@@ -31,8 +32,8 @@ func NewPrometheusHandler(rm *room.Room, opt *lifecycle.Optimize) *PrometheusHan
 	reg := prometheus.NewRegistry()
 
 	reg.MustRegister(
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 
 	reg.MustRegister(prometheus.NewGaugeFunc(
