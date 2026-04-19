@@ -1,0 +1,86 @@
+// Package config — 환경변수 기반 서버 설정.
+// main.go 가 직접 os.Getenv 를 호출하지 않도록 단일 진입점으로 집중.
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+)
+
+// Config — 서버 런타임 설정.
+// 필드는 zero-value 가 안전한 디폴트가 되도록 설계 (DSN 빈 문자열 = inmem 모드).
+type Config struct {
+	// Listen — HTTP 서버 바인딩 주소 (ex. ":5050").
+	Listen string
+
+	// LogLevel — slog 레벨 ("debug"|"info"|"warn"|"error").
+	LogLevel string
+
+	// ShutdownTimeout — SIGTERM 수신 시 in-flight 요청에 줄 최대 시간.
+	ShutdownTimeout time.Duration
+
+	// RequestTimeout — 개별 HTTP 요청의 최대 처리 시간.
+	RequestTimeout time.Duration
+
+	// MySQLDSN — 비어있으면 inmem 모드.
+	MySQLDSN string
+
+	// RedisAddr — 비어있으면 inmem leaderboard 로 graceful degrade.
+	// 예: "127.0.0.1:6379" 또는 docker compose 안에서 "redis:6379".
+	RedisAddr string
+}
+
+// Load — 환경변수에서 Config 생성. 유효성 에러 발생 시 즉시 실패.
+func Load() (*Config, error) {
+	cfg := &Config{
+		Listen:          getEnv("LISTEN_ADDR", ":5050"),
+		LogLevel:        getEnv("LOG_LEVEL", "info"),
+		ShutdownTimeout: getDurationEnv("SHUTDOWN_TIMEOUT", 15*time.Second),
+		RequestTimeout:  getDurationEnv("REQUEST_TIMEOUT", 30*time.Second),
+		MySQLDSN:        os.Getenv("MYSQL_DSN"),
+		RedisAddr:       os.Getenv("REDIS_ADDR"),
+	}
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func (c *Config) validate() error {
+	switch c.LogLevel {
+	case "debug", "info", "warn", "error":
+	default:
+		return fmt.Errorf("invalid LOG_LEVEL %q (want debug|info|warn|error)", c.LogLevel)
+	}
+	if c.ShutdownTimeout <= 0 {
+		return fmt.Errorf("SHUTDOWN_TIMEOUT must be > 0, got %v", c.ShutdownTimeout)
+	}
+	if c.RequestTimeout <= 0 {
+		return fmt.Errorf("REQUEST_TIMEOUT must be > 0, got %v", c.RequestTimeout)
+	}
+	return nil
+}
+
+func getEnv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+func getDurationEnv(key string, def time.Duration) time.Duration {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return def
+	}
+	// 정수(초) 또는 "15s"/"500ms" 형식 모두 허용.
+	if n, err := strconv.Atoi(raw); err == nil {
+		return time.Duration(n) * time.Second
+	}
+	if d, err := time.ParseDuration(raw); err == nil {
+		return d
+	}
+	return def
+}

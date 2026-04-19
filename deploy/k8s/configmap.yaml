@@ -1,0 +1,14 @@
+# 비밀이 아닌 런타임 설정. MYSQL_DSN / REDIS_ADDR 같은 자격 증명은 Secret 으로 분리 (deployment.yaml 참조).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stagesync-config
+  namespace: stagesync
+  labels:
+    app.kubernetes.io/name: stagesync
+    app.kubernetes.io/component: server
+data:
+  LOG_LEVEL: "info"
+  LISTEN_ADDR: ":5050"
+  REQUEST_TIMEOUT: "30s"
+  SHUTDOWN_TIMEOUT: "15s"

@@ -7,11 +7,11 @@
 #
 # idempotent — 여러 번 실행 OK, 이미 설치된 건 스킵.
 #
-# 설치 범위 (Phase 0 ~ 4 필요 도구 일괄):
-#   - Go 1.26 + protobuf + sqlc       [brew]
-#   - protoc-gen-go, goose, golangci-lint  [go install]
-#   - Colima + Docker + docker-compose     [brew]
-#   - Colima VM 기동
+# 설치 범위 (Phase 0 ~ 7 필요 도구 일괄):
+#   - Go 1.26 + protobuf + sqlc                    [brew]
+#   - protoc-gen-go, goose, golangci-lint          [go install + brew]
+#   - Colima + Docker + docker-compose             [brew]
+#   - mysql:8 · redis:7-alpine 이미지 pre-pull     [docker — Colima 실행 중일 때만]
 # Phase 14+ 도구 (kubectl, terraform, k6, locust) 는 해당 Phase 진입 시 추가 예정.
 
 set -euo pipefail
@@ -82,11 +82,28 @@ brew_pkg colima
 brew_pkg docker
 brew_pkg docker-compose
 
-info "[4/4] Colima 설정 확인 (자동 기동은 안 함 — 포폴 환경)"
+info "[4/5] Colima 설정 확인 (자동 기동은 안 함 — 포폴 환경)"
 if colima status >/dev/null 2>&1; then
   info "Colima 현재 실행 중. 원치 않으면 'make docker-down'"
 else
   info "Colima 미기동 상태. 사용 시 'make docker-up' / 'make dev-up'"
+fi
+
+info "[5/5] Docker 이미지 pre-pull (MySQL · Redis)"
+docker_pull() {
+  local image="$1"
+  if docker image inspect "$image" >/dev/null 2>&1; then
+    skip "$image (이미 로컬에 존재)"
+  else
+    info "docker pull $image"
+    docker pull "$image" && ok "$image"
+  fi
+}
+if colima status >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  docker_pull mysql:8
+  docker_pull redis:7-alpine
+else
+  skip "Colima 미기동 — 이미지 pull 생략 ('make dev-up' 후 자동으로 pull 됨)"
 fi
 
 # ---------- PATH 영구 설정 안내 ----------

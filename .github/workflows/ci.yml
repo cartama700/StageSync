@@ -26,10 +26,19 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Test (with -race)
-        run: go test -race -coverprofile=cover.out ./...
+      - name: Test (with -race + coverage)
+        run: go test -race -coverprofile=cover.out -covermode=atomic ./...
 
-      - name: Upload coverage
+      - name: Coverage summary
+        if: always()
+        run: |
+          go tool cover -func=cover.out | tail -n 20
+          TOTAL=$(go tool cover -func=cover.out | tail -n 1 | awk '{print $3}')
+          echo "Total coverage: $TOTAL"
+          echo "total_coverage=$TOTAL" >> "$GITHUB_ENV"
+          echo "## Coverage: $TOTAL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -41,6 +50,22 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.11.4
+
+  docker-build:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: stagesync:ci
 
   bench:
     name: Benchmarks (non-blocking)

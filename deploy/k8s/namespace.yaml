@@ -1,0 +1,9 @@
+# StageSync 전용 namespace.
+# 모든 리소스 (Deployment/Service/ConfigMap/HPA/Secret) 는 여기에 격리.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stagesync
+  labels:
+    app.kubernetes.io/name: stagesync
+    app.kubernetes.io/part-of: stagesync

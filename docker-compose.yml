@@ -1,0 +1,98 @@
+# StageSync — 로컬 스택 정의.
+#
+# Profiles:
+#   (default)  server + mysql + redis        — 기본 개발 / 리뷰
+#   inmem      server-inmem 만                — MySQL · Redis 없이 동작 확인
+#   load       + bots-cluster + bots-herd     — 부하 시나리오
+#
+# 사용 예:
+#   docker compose up --build                    # default 3 컨테이너
+#   docker compose --profile inmem up server-inmem
+#   docker compose --profile load up --build     # + 부하 봇 2 종
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: stagesync
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      target: server
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      LISTEN_ADDR: ":5050"
+      LOG_LEVEL: info
+      MYSQL_DSN: "root:root@tcp(mysql:3306)/stagesync?parseTime=true&loc=Local"
+      REDIS_ADDR: "redis:6379"
+      SHUTDOWN_TIMEOUT: "15s"
+      REQUEST_TIMEOUT: "30s"
+    ports:
+      - "5050:5050"
+
+  # inmem only (MySQL · Redis 없이 동작 확인).
+  server-inmem:
+    build:
+      context: .
+      target: server
+    environment:
+      LISTEN_ADDR: ":5050"
+      LOG_LEVEL: info
+    ports:
+      - "5050:5050"
+    profiles:
+      - inmem
+
+  # ----- load profile: WebSocket 부하 시뮬 -------------------------------
+  # cluster 시나리오: 5 개 중심점에 군집 — 이벤트 개시 스파이크 모사.
+  bots-cluster:
+    build:
+      context: .
+      target: bots
+    command:
+      ["-addr=ws://server:5050/ws/room", "-n=50", "-scenario=cluster", "-tick=100"]
+    depends_on:
+      server:
+        condition: service_started
+    profiles:
+      - load
+
+  # herd 시나리오: 원점 근처에 뭉침 — 핫스팟 부하 테스트.
+  bots-herd:
+    build:
+      context: .
+      target: bots
+    command:
+      ["-addr=ws://server:5050/ws/room", "-n=50", "-scenario=herd", "-tick=100"]
+    depends_on:
+      server:
+        condition: service_started
+    profiles:
+      - load
+
+volumes:
+  mysql-data:
