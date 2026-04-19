@@ -4,7 +4,7 @@
 > OpenAPI YAML 은 제출 후 Phase 19 작업 중 생성 검토. 그 전까지는 이 문서가 SSOT.
 
 **베이스 URL**: `http://localhost:5050` (기본값, `LISTEN_ADDR` 로 변경)
-**엔드포인트 수**: 19 개 (Health/Observability 5 · Profile 2 · Gacha 3 · Event 6 · Ranking 2 · Optimize 1 · WebSocket 1 · pprof)
+**엔드포인트 수**: 20 개 (Auth 1 · Health/Observability 5 · Profile 2 · Gacha 3 · Event 6 · Ranking 2 · Optimize 1 · WebSocket 1 · pprof)
 
 모든 응답은 `Content-Type: application/json` (바이너리 WebSocket 제외).
 공통 에러 응답 포맷 ([`internal/apperror`](../internal/apperror/) 참조):
@@ -25,6 +25,63 @@
 | `NOT_FOUND` | 404 |
 | `CONFLICT` | 409 |
 | `INTERNAL` | 500 |
+
+---
+
+## 認証 (Auth)
+
+JWT (HS256) 기반. `AUTH_SECRET` 환경변수 설정 시 활성화, 빈 문자열이면 **dev-only pass-through** 로 동작 (기존 테스트 호환).
+
+### `POST /api/auth/login`
+
+⚠️ **개발 · 데모 전용**: 자격증명 검증 없이 `player_id` 만 받아 JWT 발급. 프로덕션은 외부 IdP (Auth0 · Cognito · 자체 SSO) 로 대체 또는 패스워드 검증 로직 추가.
+
+**Body**
+```json
+{ "player": "p1" }
+```
+
+**응답 `200 OK`**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_at": "2026-04-20T12:15:00Z",
+  "player_id": "p1"
+}
+```
+- `400 VALIDATION_FAILED` — `player` 누락 또는 너무 긺.
+- `500 INTERNAL` — `AUTH_SECRET` 미설정 시 서버가 이 엔드포인트를 비활성화.
+
+### 보호 라우트 — `Authorization: Bearer <token>`
+
+현재 보호되는 엔드포인트 (`RequireAuth` 미들웨어 적용):
+
+- `POST /api/gacha/roll`
+- `GET /api/gacha/history/{player}`
+- `GET /api/gacha/pity/{player}/{pool}`
+
+요청 예:
+```bash
+curl -X POST http://localhost:5050/api/gacha/roll \
+     -H "Authorization: Bearer $JWT" \
+     -H "Content-Type: application/json" \
+     -d '{"player":"p1","pool":"demo","count":10}'
+```
+
+**인증 에러**
+- `401 Unauthorized` + `WWW-Authenticate: Bearer realm="stagesync"`
+  ```json
+  { "code": "UNAUTHORIZED", "message": "missing or malformed Authorization header" }
+  ```
+  원인: Authorization 헤더 없음 · Bearer 형식 아님 · 토큰 만료 · 서명 불일치.
+
+**미보호 상태로 두는 이유 (지금은)**
+- `/api/profile` (POST/GET): 프로필 생성은 signup 성격이라 공개. 실프로덕션은 여기도 SSO 콜백으로 보호.
+- `/api/event/*`: 조회는 공개가 자연스러움. `POST /api/event/{id}/score` 만 분리 보호는 후속 작업 (핸들러 구조 리팩터 필요).
+- `/api/ranking/*`: 랭킹 조회는 공개가 게임 UX 표준.
+- `/ws/room`: WebSocket 인증은 쿼리 파라미터 토큰 방식으로 별도 설계 필요 (후속).
+
+상세 배경 + 한계 인지: [`TRADEOFFS.md`](./TRADEOFFS.md) 1 번 섹션.
 
 ---
 

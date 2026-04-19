@@ -30,6 +30,14 @@ type Config struct {
 	// RedisAddr — 비어있으면 inmem leaderboard 로 graceful degrade.
 	// 예: "127.0.0.1:6379" 또는 docker compose 안에서 "redis:6379".
 	RedisAddr string
+
+	// AuthSecret — JWT HS256 서명 시크릿.
+	// **빈 문자열 = 인증 비활성** (로컬 개발 · 기존 테스트 호환). 프로덕션은 반드시 세팅.
+	// 예: `openssl rand -base64 48` 같은 랜덤 48 byte+ 권장.
+	AuthSecret string
+
+	// AuthTokenTTL — 발급된 JWT 의 유효기간. 기본 15 분.
+	AuthTokenTTL time.Duration
 }
 
 // Load — 환경변수에서 Config 생성. 유효성 에러 발생 시 즉시 실패.
@@ -41,6 +49,8 @@ func Load() (*Config, error) {
 		RequestTimeout:  getDurationEnv("REQUEST_TIMEOUT", 30*time.Second),
 		MySQLDSN:        os.Getenv("MYSQL_DSN"),
 		RedisAddr:       os.Getenv("REDIS_ADDR"),
+		AuthSecret:      os.Getenv("AUTH_SECRET"),
+		AuthTokenTTL:    getDurationEnv("AUTH_TOKEN_TTL", 15*time.Minute),
 	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -59,6 +69,9 @@ func (c *Config) validate() error {
 	}
 	if c.RequestTimeout <= 0 {
 		return fmt.Errorf("REQUEST_TIMEOUT must be > 0, got %v", c.RequestTimeout)
+	}
+	if c.AuthTokenTTL <= 0 {
+		return fmt.Errorf("AUTH_TOKEN_TTL must be > 0, got %v", c.AuthTokenTTL)
 	}
 	return nil
 }

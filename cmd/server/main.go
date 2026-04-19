@@ -18,6 +18,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"github.com/kimsehoon/stagesync/internal/auth"
 	"github.com/kimsehoon/stagesync/internal/config"
 	"github.com/kimsehoon/stagesync/internal/endpoint"
 	"github.com/kimsehoon/stagesync/internal/lifecycle"
@@ -78,6 +79,12 @@ func run() error {
 	eventService := eventsvc.NewService(eventRepo, eventsvc.WithLeaderboard(leaderboard))
 	rankingService := rankingsvc.NewService(leaderboard)
 
+	// Auth — AUTH_SECRET 미설정 시 issuer=nil, validator=nil → /api/auth/login 500 + 미들웨어는 pass-through.
+	authIssuer, authValidator, err := buildAuth(cfg.AuthSecret, cfg.AuthTokenTTL)
+	if err != nil {
+		return fmt.Errorf("auth: %w", err)
+	}
+
 	metricsHandler := &endpoint.MetricsHandler{Room: rm, Opt: optState}
 	healthHandler := &endpoint.HealthHandler{State: readiness}
 	wsHandler := &endpoint.WSHandler{Room: rm}
@@ -86,6 +93,7 @@ func run() error {
 	gachaHandler := &endpoint.GachaHandler{Service: gachaService}
 	eventHandler := &endpoint.EventHandler{Service: eventService}
 	rankingHandler := &endpoint.RankingHandler{Service: rankingService}
+	authHandler := &endpoint.AuthHandler{Issuer: authIssuer}
 	promHandler := endpoint.NewPrometheusHandler(rm, optState)
 
 	r := chi.NewRouter()
@@ -103,15 +111,24 @@ func run() error {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(cfg.RequestTimeout))
 
+		// --- 공개 라우트 (인증 불필요) ---
 		metricsHandler.Mount(r)
 		healthHandler.Mount(r)
-		optHandler.Mount(r)
-		profileHandler.Mount(r)
-		gachaHandler.Mount(r)
-		eventHandler.Mount(r)
-		rankingHandler.Mount(r)
 		promHandler.Mount(r)
-		wsHandler.Mount(r) // long-lived conn 이지만 WebSocket 업그레이드는 Hijack 이라 Timeout 영향 없음
+		authHandler.Mount(r)    // POST /api/auth/login
+		wsHandler.Mount(r)      // WebSocket 업그레이드 — Hijack 이라 Timeout 영향 없음
+		rankingHandler.Mount(r) // 랭킹 조회는 공개
+		profileHandler.Mount(r) // 프로필 create/get 은 공개 (signup 성격)
+		eventHandler.Mount(r)   // 이벤트 조회·점수 — 향후 score POST 만 분리 보호 예정
+		optHandler.Mount(r)     // AOI 토글 — 개발 편의 (프로덕션은 admin 인증 필요)
+
+		// --- 보호 라우트 (Authorization: Bearer <jwt> 필수) ---
+		// AUTH_SECRET 미설정 시 RequireAuth 는 pass-through → 기존 동작 호환.
+		// 설정 시 가챠 전 엔드포인트 (Roll / History / Pity) 가 401 로 차단.
+		r.Group(func(r chi.Router) {
+			r.Use(endpoint.RequireAuth(authValidator))
+			gachaHandler.Mount(r)
+		})
 	})
 
 	h2s := &http2.Server{}
@@ -210,6 +227,26 @@ func openLeaderboard(ctx context.Context, addr string) (leaderboardBackend, func
 type leaderboardBackend interface {
 	rankingsvc.Store
 	eventsvc.LeaderboardWriter
+}
+
+// buildAuth — AUTH_SECRET 기반 Issuer + Validator 생성.
+// secret 이 빈 문자열이면 둘 다 nil — 미들웨어는 pass-through (dev 모드).
+// secret 이 있으나 유효하지 않으면 에러로 서버 기동 실패.
+func buildAuth(secret string, ttl time.Duration) (*auth.Issuer, *auth.Validator, error) {
+	if secret == "" {
+		slog.Warn("auth",
+			"mode", "DISABLED",
+			"hint", "set AUTH_SECRET to enable JWT middleware — dev-only fallback",
+		)
+		return nil, nil, nil
+	}
+	issuer, err := auth.NewIssuer(secret, ttl)
+	if err != nil {
+		return nil, nil, fmt.Errorf("new issuer: %w", err)
+	}
+	validator := auth.NewValidator(secret)
+	slog.Info("auth", "mode", "enabled", "token_ttl", ttl)
+	return issuer, validator, nil
 }
 
 func buildRepos(db *sql.DB) (profilesvc.Repository, gachasvc.Repository, eventsvc.Repository) {
